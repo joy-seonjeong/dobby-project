@@ -108,6 +108,30 @@
             font-size: 0.9rem;
             color: var(--text-secondary);
         }
+
+        /* 일지 테이블 스타일 */
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            margin-top: 1rem;
+        }
+
+        .log-table th, .log-table td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .log-table th {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .log-table td {
+            font-size: 0.95rem;
+        }
     </style>
 </head>
 <body>
@@ -178,6 +202,35 @@
                     * Gemini 구독 요금: 매월 첫 영업일 $20.00 고정 차감
                 </div>
             </div>
+        </div>
+
+        <!-- 💡 실시간 가상 거래 일지 테이블 추가 -->
+        <div class="panel" style="margin-top: 1rem;">
+            <div class="panel-title">실시간 가상 거래 일지 (Mock Trading Log)</div>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>거래 구분</th>
+                        <th>체결 수량</th>
+                        <th>체결 단가</th>
+                        <th>총 거래금액</th>
+                        <th>적용 환율</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+            <tr>
+                <td style="font-family: 'Outfit', sans-serif;">2026-07-06</td>
+                <td><span style="background-color: var(--accent-green)33; color: var(--accent-green); padding: 0.25rem 0.6rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 700;">최초 진입 매수</span></td>
+                <td style="font-family: 'Outfit', sans-serif;">1.00주</td>
+                <td style="font-family: 'Outfit', sans-serif;">$76.83</td>
+                <td style="font-family: 'Outfit', sans-serif;">$76.83</td>
+                <td style="font-family: 'Outfit', sans-serif; color: var(--text-secondary);">1532.18 원</td>
+            </tr>
+            
+                </tbody>
+            </table>
         </div>
     </div>
 
