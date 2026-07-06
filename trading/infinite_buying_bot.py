@@ -15,7 +15,7 @@ STATUS_FILE_NAME = "infinite_buying_status.json"
 class TossInfiniteBuyingBot:
     """
     토스증권 OpenAPI를 연동하여 라오어의 무한매수법에 따른 자동 매매를 수행하는 봇입니다.
-    (종목별 동적 가상 대시보드 및 수수료 정산 기능 지원)
+    (소수점 둘째 자리 통일 및 달러/원화 하이브리드 대시보드 지원)
     """
     def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.0007, tax_rate: float = 0.0000278):
         self.symbol = symbol.upper()
@@ -36,7 +36,6 @@ class TossInfiniteBuyingBot:
         self.current_dir = os.path.dirname(os.path.abspath(__file__))
         self.status_file_path = os.path.join(self.current_dir, "data", STATUS_FILE_NAME)
         
-        # 동적 파일명 결정 (예: TQQQ_10_virtual_history.json)
         self.virtual_history_path = os.path.join(self.current_dir, "data", f"{self.symbol}_10_virtual_history.json")
         self.dashboard_path = os.path.join(self.current_dir, "data", f"{self.symbol}_virtual_trading_report.html")
         
@@ -56,7 +55,6 @@ class TossInfiniteBuyingBot:
                 except Exception as e:
                     print(f"⚠️ 상태 파일 로드 오류: {e}")
                     
-        # 기본 TQQQ 10분할 모의투자 디폴트값 (원금 $1,600, 1회 한도 $160, 하루 최대 1주 매수)
         default_status = {
             "capital": 1600.0,
             "divisions": 10,
@@ -92,7 +90,7 @@ class TossInfiniteBuyingBot:
         
         with open(self.status_file_path, "w", encoding="utf-8") as f:
             json.dump(all_status, f, indent=4, ensure_ascii=False)
-        print(f"💾 {self.symbol} 상태 저장: step={self.status['step']}, holdings={self.status['holdings']}주, 평단가=${self.status['average_price']:.2f}")
+        print(f"💾 {self.symbol} 상태 저장: step={self.status['step']}, holdings={self.status['holdings']:.2f}주, 평단가=${self.status['average_price']:.2f}")
 
     def sync_state_with_broker(self):
         """
@@ -143,14 +141,27 @@ class TossInfiniteBuyingBot:
             ticker = yf.Ticker(self.symbol)
             price = ticker.fast_info.last_price
             if price:
-                return price
+                return float(price)
         except Exception:
             pass
         return 76.76
 
+    def get_exchange_rate(self):
+        """
+        실시간 원/달러 환율을 조회합니다.
+        """
+        try:
+            import yfinance as yf
+            rate = yf.Ticker("USDKRW=X").fast_info.last_price
+            if rate:
+                return float(rate)
+        except Exception:
+            pass
+        return 1380.0
+
     def place_toss_order(self, quantity: float, price: float, side: str, order_type: str = "LIMIT", time_in_force: str = "DAY"):
         if self.is_dry_run:
-            print(f"🛡️ [DRY RUN 가상 주문] {side} {self.symbol} {quantity}주 @ ${price:.2f} (TIF: {time_in_force})")
+            print(f"🛡️ [DRY RUN 가상 주문] {side} {self.symbol} {quantity:.2f}주 @ ${price:.2f} (TIF: {time_in_force})")
             return {"status": "success", "orderId": "mock_order_id"}
         url = f"{self.asset_manager.base_url}/api/v1/orders"
         headers = self.asset_manager._get_headers()
@@ -173,9 +184,10 @@ class TossInfiniteBuyingBot:
 
     def update_virtual_history(self, current_price: float, is_bought: bool, is_sold: bool, buy_qty: float = 0, sell_qty: float = 0, sell_price: float = 0):
         """
-        가상 투자 기록 누적 저장 (Gemini 요금 및 수수료 반영)
+        가상 투자 기록 누적 저장 (소수점 둘째 자리 포맷 통일)
         """
         today_str = datetime.now().strftime("%Y-%m-%d")
+        exchange_rate = self.get_exchange_rate()
         
         history_list = []
         if os.path.exists(self.virtual_history_path):
@@ -202,7 +214,7 @@ class TossInfiniteBuyingBot:
             self.status["net_holdings"] += buy_qty
             self.status["net_total_purchase"] += (buy_amt + fee)
             self.status["net_average_price"] = self.status["net_total_purchase"] / self.status["net_holdings"]
-            print(f"📈 [가상 매수 정산] {buy_qty}주 매수 (수수료 ${fee:.4f} 차감 반영)")
+            print(f"📈 [가상 매수 정산] {buy_qty:.2f}주 매수 (수수료 ${fee:.2f} 차감 반영)")
             
         if is_sold and sell_qty > 0:
             gross_revenue = sell_qty * sell_price
@@ -210,7 +222,7 @@ class TossInfiniteBuyingBot:
             tax = gross_revenue * self.tax_rate
             net_revenue = gross_revenue - fee - tax
             self.status["net_cash"] += net_revenue
-            print(f"🎉 [가상 익절 정산] {sell_qty}주 매도 완료 (수수료/세금 ${fee+tax:.4f} 차감 반영)")
+            print(f"🎉 [가상 익절 정산] {sell_qty:.2f}주 매도 완료 (수수료/세금 ${fee+tax:.2f} 차감 반영)")
             self.status["net_holdings"] = 0.0
             self.status["net_total_purchase"] = 0.0
             self.status["net_average_price"] = 0.0
@@ -221,14 +233,20 @@ class TossInfiniteBuyingBot:
         net_portfolio_value = self.status["net_holdings"] * current_price
         net_total_assets = self.status["net_cash"] + net_portfolio_value
         
+        total_assets_krw = total_assets * exchange_rate
+        net_assets_krw = net_total_assets * exchange_rate
+        
         today_record = {
             "date": today_str,
-            "close": current_price,
+            "close": round(current_price, 2),
+            "exchange_rate": round(exchange_rate, 2),
             "step": self.status["step"],
-            "holdings": self.status["holdings"],
+            "holdings": round(self.status["holdings"], 2),
             "average_price": round(self.status["average_price"], 2),
             "total_assets": round(total_assets, 2),
             "net_assets": round(net_total_assets, 2),
+            "total_assets_krw": round(total_assets_krw),
+            "net_assets_krw": round(net_assets_krw),
             "profit_rate_pct": round(((total_assets - self.status["capital"]) / self.status["capital"]) * 100, 2),
             "net_profit_rate_pct": round(((net_total_assets - self.status["capital"]) / self.status["capital"]) * 100, 2)
         }
@@ -238,14 +256,15 @@ class TossInfiniteBuyingBot:
         with open(self.virtual_history_path, "w", encoding="utf-8") as f:
             json.dump(history_list, f, indent=4, ensure_ascii=False)
             
-        print(f"📊 [{self.symbol} 가상자산 현황] 세전: ${today_record['total_assets']:.2f} ({today_record['profit_rate_pct']:+}%)\n"
-              f"                     비용차감 후 순자산: ${today_record['net_assets']:.2f} ({today_record['net_profit_rate_pct']:+}%)")
+        print(f"📊 [{self.symbol} 가상자산 현황] 세전: ${today_record['total_assets']:.2f} (약 {today_record['total_assets_krw']:,}원 | {today_record['profit_rate_pct']:+}%)\n"
+              f"                     비용차감 후 순자산: ${today_record['net_assets']:.2f} (약 {today_record['net_assets_krw']:,}원 | {today_record['net_profit_rate_pct']:+}%)\n"
+              f"                     (적용 환율: {today_record['exchange_rate']:.2f}원/$)")
               
         self.generate_virtual_dashboard(history_list)
 
     def generate_virtual_dashboard(self, history):
         """
-        가상 모의투자 대시보드 HTML 파일 생성 (종목명 대응 및 미적 리뉴얼)
+        가상 모의투자 대시보드 HTML 파일 생성 (소수점 둘째 자리 포맷 통일)
         """
         today_rec = history[-1]
         raw_pct = today_rec["profit_rate_pct"]
@@ -255,6 +274,7 @@ class TossInfiniteBuyingBot:
         raw_assets_json = json.dumps([h["total_assets"] for h in history])
         net_assets_json = json.dumps([h["net_assets"] for h in history])
         prices_json = json.dumps([h["close"] for h in history])
+        rates_json = json.dumps([h.get("exchange_rate", 1380.0) for h in history])
         
         html_template = f"""<!DOCTYPE html>
 <html lang="ko">
@@ -314,12 +334,16 @@ class TossInfiniteBuyingBot:
             border: 1px solid var(--border-color);
             border-radius: 1rem;
             padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }}
 
         .kpi-title {{ font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; }}
         .kpi-value {{ font-size: 1.8rem; font-weight: 700; }}
         .kpi-value.positive {{ color: var(--accent-green); }}
         .kpi-value.negative {{ color: var(--accent-red); }}
+        .kpi-sub {{ font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.35rem; font-weight: 500; }}
 
         .layout {{ display: grid; grid-template-columns: 2.5fr 1fr; gap: 2rem; }}
         @media (max-width: 900px) {{ .layout {{ grid-template-columns: 1fr; }} }}
@@ -368,28 +392,32 @@ class TossInfiniteBuyingBot:
     <div class="container">
         <header>
             <h1>{self.symbol} 10분할 실시간 모의투자 대시보드</h1>
-            <p>오늘부터 시작하는 {self.symbol} 10분할 (하루 최대 1주) 무한매수 모의투자 가짜 계좌</p>
+            <p>오늘부터 시작하는 {self.symbol} 10분할 (하루 최대 1주) 무한매수 모의투자 가짜 계좌 (소수점 둘째 자리 통일)</p>
         </header>
 
         <!-- KPI Grid -->
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-title">총 설정 원금</div>
-                <div class="kpi-value">${self.status['capital']:,}</div>
+                <div class="kpi-value">${self.status['capital']:.2f}</div>
+                <div class="kpi-sub">≈ {int(self.status['capital'] * today_rec['exchange_rate']):,} 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">세전 가상자산</div>
-                <div class="kpi-value" style="color: #60a5fa">${today_rec['total_assets']:,} ({raw_pct:+,}%)</div>
+                <div class="kpi-value" style="color: #60a5fa">${today_rec['total_assets']:.2f} ({raw_pct:+,}%)</div>
+                <div class="kpi-sub">≈ {today_rec.get('total_assets_krw', 0):,} 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">순자산 (비용 차감 후)</div>
                 <div class="kpi-value {'positive' if net_pct >= 0 else 'negative'}">
-                    ${today_rec['net_assets']:,} ({net_pct:+,}%)
+                    ${today_rec['net_assets']:.2f} ({net_pct:+,}%)
                 </div>
+                <div class="kpi-sub" style="color: var(--accent-green);">≈ {today_rec.get('net_assets_krw', 0):,} 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">{self.symbol} 현재가</div>
-                <div class="kpi-value" style="color: var(--accent-purple)">${today_rec['close']:,}</div>
+                <div class="kpi-value" style="color: var(--accent-purple)">${today_rec['close']:.2f}</div>
+                <div class="kpi-sub">{today_rec['exchange_rate']:.2f} 원/$</div>
             </div>
         </div>
 
@@ -410,15 +438,15 @@ class TossInfiniteBuyingBot:
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">가상 보유량</span>
-                        <span class="stat-val">{self.status['holdings']}주</span>
+                        <span class="stat-val">{self.status['holdings']:.2f}주</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">가상 보유 평단가</span>
-                        <span class="stat-val">${self.status['average_price']:.2f}</span>
+                        <span class="stat-val">${self.status['average_price']:.2f} (약 {int(self.status['average_price']*today_rec['exchange_rate']):,}원)</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">순현금 보유액</span>
-                        <span class="stat-val">${self.status['net_cash']:.2f}</span>
+                        <span class="stat-val">${self.status['net_cash']:.2f} (약 {int(self.status['net_cash']*today_rec['exchange_rate']):,}원)</span>
                     </li>
                 </ul>
                 <div class="notice-card">
@@ -436,6 +464,7 @@ class TossInfiniteBuyingBot:
         const rawAssets = {raw_assets_json};
         const netAssets = {net_assets_json};
         const prices = {prices_json};
+        const rates = {rates_json};
 
         const ctx = document.getElementById('virtualChart').getContext('2d');
         new Chart(ctx, {{
@@ -477,6 +506,29 @@ class TossInfiniteBuyingBot:
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: {{ mode: 'index', intersect: false }},
+                plugins: {{
+                    tooltip: {{
+                        callbacks: {{
+                            label: function(context) {{
+                                let label = context.dataset.label || '';
+                                if (label) {{
+                                    label += ': ';
+                                }}
+                                if (context.parsed.y !== null) {{
+                                    const val = context.parsed.y;
+                                    label += '$' + val.toFixed(2);
+                                    
+                                    if (context.datasetIndex === 0 || context.datasetIndex === 1) {{
+                                        const rate = rates[context.dataIndex];
+                                        const krwVal = Math.round(val * rate);
+                                        label += ' (약 ' + krwVal.toLocaleString() + '원)';
+                                    }}
+                                }}
+                                return label;
+                            }}
+                        }}
+                    }}
+                }},
                 scales: {{
                     'y-assets': {{
                         type: 'linear',
@@ -507,7 +559,6 @@ class TossInfiniteBuyingBot:
     def execute_daily_trade(self):
         """
         매일 실행되는 무한매수법 거래 로직을 수행합니다.
-        (가변형 1주 LOC 매수 룰 적용)
         """
         print(f"\n🚀 === [무한매수법 실행] 종목: {self.symbol} | 모드: {'DRY-RUN(가상)' if self.is_dry_run else 'REAL(실전)'} ===")
         
@@ -524,7 +575,7 @@ class TossInfiniteBuyingBot:
         # 1. 목표 익절 매도 감시
         if self.status["holdings"] > 0:
             target_sell_price = self.status["average_price"] * 1.10
-            print(f"🔔 [익절 매도 예약] 목표가(+10%): ${target_sell_price:.2f} | 보유 수량: {self.status['holdings']}주")
+            print(f"🔔 [익절 매도 예약] 목표가(+10%): ${target_sell_price:.2f} | 보유 수량: {self.status['holdings']:.2f}주")
             
             if current_price >= target_sell_price:
                 print("🚨 [실시간 익절 조건 충족] 전량 매도를 실행합니다!")
@@ -582,7 +633,6 @@ class TossInfiniteBuyingBot:
                         time_in_force="CLS"
                     )
                     
-                    # 가상 체결 판정
                     virtual_bought = False
                     if current_price <= avg_price:
                         virtual_bought = True
