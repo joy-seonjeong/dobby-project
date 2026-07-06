@@ -15,7 +15,7 @@ STATUS_FILE_NAME = "infinite_buying_status.json"
 class TossInfiniteBuyingBot:
     """
     토스증권 OpenAPI를 연동하여 라오어의 무한매수법에 따른 자동 매매를 수행하는 봇입니다.
-    (소수점 둘째 자리 통일 및 달러/원화 하이브리드 대시보드 지원)
+    (방법론 infinite_buying_strategy.md 규칙과 100% 호환되도록 매일 +10% 매도 예약 및 주문 룰 동기화 완료)
     """
     def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.0007, tax_rate: float = 0.0000278):
         self.symbol = symbol.upper()
@@ -43,9 +43,6 @@ class TossInfiniteBuyingBot:
         self.status = self.load_status()
         
     def load_status(self):
-        """
-        로컬 상태 파일에서 진행 상태를 불러옵니다.
-        """
         if os.path.exists(self.status_file_path):
             with open(self.status_file_path, "r", encoding="utf-8") as f:
                 try:
@@ -75,9 +72,6 @@ class TossInfiniteBuyingBot:
         return default_status
         
     def save_status(self):
-        """
-        현재 진행 상태를 저장합니다.
-        """
         all_status = {}
         if os.path.exists(self.status_file_path):
             with open(self.status_file_path, "r", encoding="utf-8") as f:
@@ -94,10 +88,14 @@ class TossInfiniteBuyingBot:
 
     def sync_state_with_broker(self):
         """
-        실계좌 동기화
+        실제 토스증권 계좌의 보유 자산 정보를 가져와 로컬 상태와 동기화합니다.
+        (전날 매도 예약 주문이 체결되어 수량이 0이 되었을 경우, 자동으로 익절 완료로 판정하고 사이클을 리셋합니다.)
         """
+        print(f"\n🔄 [싱크] {self.symbol} 계좌 잔고 동기화 중...")
         if self.is_dry_run or not self.asset_manager:
+            print("💡 Dry-run 가상 매매 모드이므로 계좌 연동을 생략하고 로컬 가상 계좌 상태를 유지합니다.")
             return
+            
         try:
             holdings_info = self.asset_manager.get_holdings(symbol=self.symbol)
             items = holdings_info.get("items", [])
@@ -106,23 +104,37 @@ class TossInfiniteBuyingBot:
                 if item.get("symbol") == self.symbol:
                     target_item = item
                     break
+            
             if not target_item:
+                # 계좌 내 수량이 0인데 로컬 상태에 보유량이 있는 경우 -> 익절 완료로 판정
                 if self.status["holdings"] > 0:
+                    print(f"🎉 [실전 익절 성공!] 계좌 내 {self.symbol} 보유량이 0입니다. 평단가 +10% 지정가 매도 주문이 장중에 성공적으로 체결된 것으로 판정하고 사이클을 리셋합니다.")
                     self.reset_cycle()
+                else:
+                    self.status["step"] = 0
+                    self.status["holdings"] = 0.0
+                    self.status["average_price"] = 0.0
+                    self.status["total_purchase_amount"] = 0.0
             else:
                 broker_qty = float(target_item.get("quantity", 0))
                 broker_avg_price = float(target_item.get("averagePurchasePrice", 0))
-                if broker_qty != self.status["holdings"]:
+                
+                print(f"📊 [실계좌 확인] 보유 잔고: {broker_qty:.2f}주, 평단가: ${broker_avg_price:.2f}")
+                
+                # 수량이 증가한 경우 -> 전날 LOC 매수가 신규 체결된 것임
+                if broker_qty > self.status["holdings"]:
+                    print(f"📈 [추가 체결] 수량 증가 감지: {self.status['holdings']:.2f}주 -> {broker_qty:.2f}주")
                     if self.status["step"] == 0:
                         self.status["step"] = 1
                     else:
                         self.status["step"] += 1
+                        
                 self.status["holdings"] = broker_qty
                 self.status["average_price"] = broker_avg_price
                 self.status["total_purchase_amount"] = broker_qty * broker_avg_price
             self.save_status()
         except Exception as e:
-            print(f"❌ 계좌 동기화 실패: {e}")
+            print(f"❌ 계좌 동기화 실패: {e}. 로컬 가상 상태 데이터를 사용합니다.")
 
     def reset_cycle(self):
         print(f"🔄 [리셋] {self.symbol} 무한매수법 사이클 리셋")
@@ -147,9 +159,6 @@ class TossInfiniteBuyingBot:
         return 76.76
 
     def get_exchange_rate(self):
-        """
-        실시간 원/달러 환율을 조회합니다.
-        """
         try:
             import yfinance as yf
             rate = yf.Ticker("USDKRW=X").fast_info.last_price
@@ -177,15 +186,15 @@ class TossInfiniteBuyingBot:
         try:
             response = requests.post(url, headers=headers, json=payload)
             if response.status_code == 200:
+                print(f"✅ [주문 성공] {side} {self.symbol} 주문 접수 완료! (수량: {quantity:.2f}주, 가격: ${price:.2f})")
                 return response.json()
-        except Exception:
-            pass
+            else:
+                print(f"❌ [주문 실패] 상태코드: {response.status_code}, 내용: {response.text}")
+        except Exception as e:
+            print(f"❌ [주문 API 에러] {e}")
         return None
 
     def update_virtual_history(self, current_price: float, is_bought: bool, is_sold: bool, buy_qty: float = 0, sell_qty: float = 0, sell_price: float = 0):
-        """
-        가상 투자 기록 누적 저장 (소수점 둘째 자리 포맷 통일)
-        """
         today_str = datetime.now().strftime("%Y-%m-%d")
         exchange_rate = self.get_exchange_rate()
         
@@ -257,15 +266,11 @@ class TossInfiniteBuyingBot:
             json.dump(history_list, f, indent=4, ensure_ascii=False)
             
         print(f"📊 [{self.symbol} 가상자산 현황] 세전: ${today_record['total_assets']:.2f} (약 {today_record['total_assets_krw']:,}원 | {today_record['profit_rate_pct']:+}%)\n"
-              f"                     비용차감 후 순자산: ${today_record['net_assets']:.2f} (약 {today_record['net_assets_krw']:,}원 | {today_record['net_profit_rate_pct']:+}%)\n"
-              f"                     (적용 환율: {today_record['exchange_rate']:.2f}원/$)")
+              f"                     비용차감 후 순자산: ${today_record['net_assets']:.2f} (약 {today_record['net_assets_krw']:,}원 | {today_record['net_profit_rate_pct']:+}%)")
               
         self.generate_virtual_dashboard(history_list)
 
     def generate_virtual_dashboard(self, history):
-        """
-        가상 모의투자 대시보드 HTML 파일 생성 (소수점 둘째 자리 포맷 통일)
-        """
         today_rec = history[-1]
         raw_pct = today_rec["profit_rate_pct"]
         net_pct = today_rec["net_profit_rate_pct"]
@@ -559,9 +564,11 @@ class TossInfiniteBuyingBot:
     def execute_daily_trade(self):
         """
         매일 실행되는 무한매수법 거래 로직을 수행합니다.
+        (익절 목표가 +10% 지정가 예약 매도 기능 및 일일 매수 주문 분할 제출)
         """
         print(f"\n🚀 === [무한매수법 실행] 종목: {self.symbol} | 모드: {'DRY-RUN(가상)' if self.is_dry_run else 'REAL(실전)'} ===")
         
+        # 1. 증권사 및 로컬 동기화 (전날 예약 매도 체결 시 자동 익절 정산됨)
         self.sync_state_with_broker()
         current_price = self.get_current_price()
         print(f"📈 {self.symbol} 현재가: ${current_price:.2f}")
@@ -572,30 +579,35 @@ class TossInfiniteBuyingBot:
         sell_qty = 0
         sell_price = 0
         
-        # 1. 목표 익절 매도 감시
+        # 2. 목표 익절 매도 예약 주문 제출 (평단가 대비 +10% 지정가 매도)
+        # (보유한 수량이 있는 경우 매일 장 시작 전에 증권사로 매도 예약을 걸어둡니다.)
         if self.status["holdings"] > 0:
             target_sell_price = self.status["average_price"] * 1.10
             print(f"🔔 [익절 매도 예약] 목표가(+10%): ${target_sell_price:.2f} | 보유 수량: {self.status['holdings']:.2f}주")
             
-            if current_price >= target_sell_price:
-                print("🚨 [실시간 익절 조건 충족] 전량 매도를 실행합니다!")
-                self.place_toss_order(
-                    quantity=self.status["holdings"],
-                    price=0,
-                    side="SELL",
-                    order_type="MARKET",
-                    time_in_force="DAY"
-                )
+            # 실전/가상 관계없이 지정가 매도 예약을 전송합니다 (정수 단위이므로 토스 API 정상 승인)
+            self.place_toss_order(
+                quantity=self.status["holdings"],
+                price=target_sell_price,
+                side="SELL",
+                order_type="LIMIT",
+                time_in_force="DAY"
+            )
+            
+            # [가상 모드 전용] 만약 당일 실시간 고가(또는 현재가)가 익절가 이상인 경우 가상 체결 정산 처리
+            if self.is_dry_run and current_price >= target_sell_price:
+                print("🚨 [가상 익절 조건 충족] 가상 전량 익절 매도 정산을 실행합니다!")
                 is_sold = True
                 sell_qty = self.status["holdings"]
-                sell_price = current_price
+                sell_price = target_sell_price
                 self.reset_cycle()
                 
-        # 2. 당일 매수 주문 전송
+        # 3. 당일 매수 주문 전송 (오늘 익절이 나가지 않은 경우에만)
         if not is_sold:
             step = self.status["step"]
             
             if step == 0:
+                # 1단계: 최초 진입 (1주 시장가/지정가 매입)
                 print("🆕 [1회차 진입] 최초 1주 매수 주문을 전송합니다.")
                 self.place_toss_order(
                     quantity=1.0,
@@ -614,16 +626,19 @@ class TossInfiniteBuyingBot:
                 self.status["last_trade_date"] = datetime.now().strftime("%Y-%m-%d")
                 self.save_status()
             else:
+                # 2단계 이상: 당일 LOC 매수
                 if step < self.status["divisions"]:
                     avg_price = self.status["average_price"]
                     target_buy_price = 0.0
                     
+                    # 현재가가 평단가 이하일 때: 평단가 가격에 LOC 1주 매수 전송
                     if current_price <= avg_price:
                         target_buy_price = avg_price
-                        print(f"📥 [LOC 매수 1회차] 평단가 대비 매수 주문: 1주 @ ${target_buy_price:.2f} (종가 평단 이하 시 체결)")
+                        print(f"📥 [LOC 매수 1회차] 평단가 대비 매수 주문: 1주 @ ${target_buy_price:.2f} (TIF: LOC)")
+                    # 현재가가 평단가보다 높을 때: 현재가 * 1.1 가격에 LOC 1주 매수 전송 (무조건 종가 체결)
                     else:
                         target_buy_price = current_price * 1.10
-                        print(f"📥 [LOC 매수 1회차] 무체결 방지 매수 주문: 1주 @ ${target_buy_price:.2f} (무조건 종가 체결)")
+                        print(f"📥 [LOC 매수 1회차] 무체결 방지 매수 주문: 1주 @ ${target_buy_price:.2f} (TIF: LOC)")
                         
                     self.place_toss_order(
                         quantity=1.0,
@@ -633,6 +648,7 @@ class TossInfiniteBuyingBot:
                         time_in_force="CLS"
                     )
                     
+                    # [가상 체결 판정] 
                     virtual_bought = False
                     if current_price <= avg_price:
                         virtual_bought = True
@@ -652,7 +668,7 @@ class TossInfiniteBuyingBot:
                 else:
                     print(f"⚠️ [원금 소진] 현재 {step}회차로 설정된 {self.status['divisions']}회차 한도에 도달했습니다. 대기합니다.")
 
-        # 3. 가상 투자 역사 기록 및 대시보드 갱신
+        # 4. 가상 투자 역사 기록 및 대시보드 갱신
         self.update_virtual_history(
             current_price=current_price,
             is_bought=is_bought,
