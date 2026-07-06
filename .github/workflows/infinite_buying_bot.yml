@@ -1,0 +1,50 @@
+name: Infinite Buying Bot Scheduler
+
+on:
+  schedule:
+    # 매일 한국 시간 오전 07:00 (UTC 22:00) 미국 정규장 중/후반에 실행
+    - cron: '0 22 * * 1-5'
+  workflow_dispatch: # 수동 실행 버튼 활성화
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 저장소 코드 체크아웃
+      uses: actions/checkout@v3
+
+    - name: 파이썬 3.9 설치
+      uses: actions/setup-python@v4
+      with:
+        python-python-version: '3.9'
+        cache: 'pip'
+
+    - name: 필수 종속성 패키지 설치
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests pandas numpy yfinance python-dotenv
+
+    - name: 무한매수법 봇 가상 모드(Dry-run) 실행
+      run: |
+        python trading/infinite_buying_bot.py --symbol TQQQ
+
+      env:
+        # 가상(Dry-run) 테스트이므로 토스 API 키는 세팅하지 않아도 돌아갑니다.
+        # 만약 실제 실전 거래로 돌리고 싶다면 Github Secrets에 API 키를 등록하고 아래 주석을 해제합니다.
+        TOSS_APP_KEY: ${{ secrets.TOSS_APP_KEY }}
+        TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+        TOSS_ACCOUNT_NO: ${{ secrets.TOSS_ACCOUNT_NO }}
+        TOSS_ACCOUNT_SEQ: ${{ secrets.TOSS_ACCOUNT_SEQ }}
+
+    - name: 가상 거래 내역 및 대시보드 변경사항 Commit & Push
+      run: |
+        git config --global user.name "Github Actions Bot"
+        git config --global user.email "actions@github.com"
+        git add trading/data/infinite_buying_status.json
+        git add trading/data/TQQQ_10_virtual_history.json
+        git add trading/data/TQQQ_virtual_trading_report.html
+
+        
+        # 변경사항이 있을 때만 커밋
+        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 [Bot] 일일 가상 거래 및 대시보드 자동 갱신 (${{ github.event.head_commit.timestamp }})" && git push)
