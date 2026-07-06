@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>무한매수법 백테스팅 리포트 - SOXL</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --border-color: #223049;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --gradient-blue: linear-gradient(135deg, #2563eb, #3b82f6);
+            --gradient-green: linear-gradient(135deg, #059669, #10b981);
+            --gradient-red: linear-gradient(135deg, #dc2626, #ef4444);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        .header-title h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-top: 0.25rem;
+        }
+
+        .badge {
+            background: var(--gradient-blue);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .kpi-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .kpi-title {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .kpi-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .kpi-value.positive {
+            color: var(--accent-green);
+        }
+
+        .kpi-value.negative {
+            color: var(--accent-red);
+        }
+
+        /* Dashboard Content Layout */
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .layout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Card Panels */
+        .panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            padding: 2rem;
+        }
+
+        .panel-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--accent-blue);
+            padding-left: 0.75rem;
+        }
+
+        /* Chart Canvas Area */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        /* Detail Stats List */
+        .stat-list {
+            list-style: none;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+        }
+
+        .stat-val {
+            font-weight: 600;
+        }
+
+        /* Data Tables */
+        .table-panel {
+            margin-top: 2.5rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-profit {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+        }
+
+        .status-hold {
+            background-color: rgba(139, 92, 246, 0.15);
+            color: var(--accent-purple);
+        }
+
+        .status-ing {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h1>라오어의 무한매수법 백테스팅</h1>
+                <p>전략: 40분할 LOC 분할매수 & +10% 지정가 익절 매도</p>
+            </div>
+            <div class="badge">종목: SOXL</div>
+        </header>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">초기 자본금</div>
+                <div class="kpi-value">$10,000.0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">최종 평가자산</div>
+                <div class="kpi-value">$18,850.39</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">누적 수익률</div>
+                <div class="kpi-value positive">
+                    +88.5%
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">연평균 수익률 (CAGR)</div>
+                <div class="kpi-value positive">
+                    13.52%
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">최대 낙폭 (MDD)</div>
+                <div class="kpi-value negative">-67.76%</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Body -->
+        <div class="layout-grid">
+            <!-- Asset Growth Chart Panel -->
+            <div class="panel">
+                <div class="panel-title">자산 성장 곡선 (Asset Growth Curve)</div>
+                <div class="chart-container">
+                    <canvas id="assetChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Detail Statistics Panel -->
+            <div class="panel">
+                <div class="panel-title">상세 통계 지표</div>
+                <ul class="stat-list">
+                    <li class="stat-item">
+                        <span class="stat-label">총 진행 사이클 수</span>
+                        <span class="stat-val">43회</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">완료된 익절 사이클</span>
+                        <span class="stat-val" style="color: var(--accent-green)">42회</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">익절 성공률</span>
+                        <span class="stat-val">
+                            97.7%
+                        </span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">평균 사이클 소요 일수</span>
+                        <span class="stat-val">43.5일</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">사이클 내 최대 진행 회차</span>
+                        <span class="stat-val">40 / 40회차</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">40회차 소진 횟수 (원금 소진)</span>
+                        <span class="stat-val" style="color: var(--accent-red)">
+                            3회
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Cycles History Table Panel -->
+        <div class="panel table-panel">
+            <div class="panel-title">사이클별 세부 매매 기록</div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>사이클</th>
+                            <th>시작일</th>
+                            <th>종료일</th>
+                            <th>최대 진행 회차</th>
+                            <th>누적 매수금</th>
+                            <th>수익금</th>
+                            <th>수익률</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    
+                        <tr>
+                            <td>#1</td>
+                            <td>2021-07-01</td>
+                            <td>2021-07-30</td>
+                            <td>20회차</td>
+                            <td>$3,416.3</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+341.63</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#2</td>
+                            <td>2021-07-30</td>
+                            <td>2021-08-27</td>
+                            <td>20회차</td>
+                            <td>$3,668.07</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+366.81</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#3</td>
+                            <td>2021-08-27</td>
+                            <td>2021-10-28</td>
+                            <td>40회차</td>
+                            <td>$7,545.89</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+754.59</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#4</td>
+                            <td>2021-10-28</td>
+                            <td>2021-11-04</td>
+                            <td>5회차</td>
+                            <td>$545.6</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+54.56</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#5</td>
+                            <td>2021-11-04</td>
+                            <td>2021-11-18</td>
+                            <td>10회차</td>
+                            <td>$1,307.32</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+130.73</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#6</td>
+                            <td>2021-11-18</td>
+                            <td>2021-12-07</td>
+                            <td>12회차</td>
+                            <td>$2,440.94</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+244.09</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#7</td>
+                            <td>2021-12-07</td>
+                            <td>2021-12-27</td>
+                            <td>13회차</td>
+                            <td>$2,569.83</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+256.98</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#8</td>
+                            <td>2021-12-27</td>
+                            <td>2024-03-07</td>
+                            <td>40회차</td>
+                            <td>$9,570.85</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+957.08</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#9</td>
+                            <td>2024-03-07</td>
+                            <td>2024-04-01</td>
+                            <td>16회차</td>
+                            <td>$2,929.5</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+292.95</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#10</td>
+                            <td>2024-04-01</td>
+                            <td>2024-05-14</td>
+                            <td>31회차</td>
+                            <td>$6,172.33</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+617.23</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#11</td>
+                            <td>2024-05-14</td>
+                            <td>2024-05-23</td>
+                            <td>7회차</td>
+                            <td>$917.61</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+91.76</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#12</td>
+                            <td>2024-05-23</td>
+                            <td>2024-06-12</td>
+                            <td>13회차</td>
+                            <td>$2,173.14</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+217.31</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#13</td>
+                            <td>2024-06-12</td>
+                            <td>2024-07-08</td>
+                            <td>16회차</td>
+                            <td>$3,057.9</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+305.79</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#14</td>
+                            <td>2024-07-08</td>
+                            <td>2025-10-06</td>
+                            <td>40회차</td>
+                            <td>$8,938.6</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+893.86</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#15</td>
+                            <td>2025-10-06</td>
+                            <td>2025-10-20</td>
+                            <td>10회차</td>
+                            <td>$1,541.72</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+154.17</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#16</td>
+                            <td>2025-10-20</td>
+                            <td>2025-10-27</td>
+                            <td>5회차</td>
+                            <td>$792.24</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+79.22</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#17</td>
+                            <td>2025-10-27</td>
+                            <td>2025-12-02</td>
+                            <td>25회차</td>
+                            <td>$5,171.85</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+517.18</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#18</td>
+                            <td>2025-12-02</td>
+                            <td>2026-01-02</td>
+                            <td>21회차</td>
+                            <td>$3,543.81</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+354.38</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#19</td>
+                            <td>2026-01-02</td>
+                            <td>2026-01-06</td>
+                            <td>2회차</td>
+                            <td>$172.24</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+17.22</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#20</td>
+                            <td>2026-01-06</td>
+                            <td>2026-01-13</td>
+                            <td>5회차</td>
+                            <td>$804.01</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+80.4</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#21</td>
+                            <td>2026-01-13</td>
+                            <td>2026-01-15</td>
+                            <td>2회차</td>
+                            <td>$306.07</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+30.61</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#22</td>
+                            <td>2026-01-15</td>
+                            <td>2026-01-21</td>
+                            <td>3회차</td>
+                            <td>$433.08</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+43.31</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#23</td>
+                            <td>2026-01-21</td>
+                            <td>2026-01-28</td>
+                            <td>5회차</td>
+                            <td>$813.48</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+81.35</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#24</td>
+                            <td>2026-01-28</td>
+                            <td>2026-02-11</td>
+                            <td>10회차</td>
+                            <td>$1,820.1</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+182.01</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#25</td>
+                            <td>2026-02-11</td>
+                            <td>2026-02-25</td>
+                            <td>9회차</td>
+                            <td>$1,193.06</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+119.31</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#26</td>
+                            <td>2026-02-25</td>
+                            <td>2026-04-08</td>
+                            <td>29회차</td>
+                            <td>$6,571.87</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+657.19</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#27</td>
+                            <td>2026-04-08</td>
+                            <td>2026-04-10</td>
+                            <td>2회차</td>
+                            <td>$192.5</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+19.25</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#28</td>
+                            <td>2026-04-10</td>
+                            <td>2026-04-17</td>
+                            <td>5회차</td>
+                            <td>$576.39</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+57.64</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#29</td>
+                            <td>2026-04-17</td>
+                            <td>2026-04-22</td>
+                            <td>3회차</td>
+                            <td>$344.68</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+34.47</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#30</td>
+                            <td>2026-04-22</td>
+                            <td>2026-04-23</td>
+                            <td>1회차</td>
+                            <td>$105.64</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+10.56</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#31</td>
+                            <td>2026-04-23</td>
+                            <td>2026-04-24</td>
+                            <td>1회차</td>
+                            <td>$112.77</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+11.28</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#32</td>
+                            <td>2026-04-24</td>
+                            <td>2026-05-01</td>
+                            <td>5회차</td>
+                            <td>$1,003.3</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+100.33</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#33</td>
+                            <td>2026-05-01</td>
+                            <td>2026-05-05</td>
+                            <td>2회차</td>
+                            <td>$380.4</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+38.04</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#34</td>
+                            <td>2026-05-05</td>
+                            <td>2026-05-06</td>
+                            <td>1회차</td>
+                            <td>$144.16</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+14.42</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#35</td>
+                            <td>2026-05-06</td>
+                            <td>2026-05-08</td>
+                            <td>2회차</td>
+                            <td>$415.84</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+41.58</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#36</td>
+                            <td>2026-05-08</td>
+                            <td>2026-05-22</td>
+                            <td>10회차</td>
+                            <td>$1,801.98</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+180.2</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#37</td>
+                            <td>2026-05-22</td>
+                            <td>2026-05-26</td>
+                            <td>1회차</td>
+                            <td>$190.56</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+19.06</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#38</td>
+                            <td>2026-05-26</td>
+                            <td>2026-06-02</td>
+                            <td>5회차</td>
+                            <td>$850.78</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+85.08</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#39</td>
+                            <td>2026-06-02</td>
+                            <td>2026-06-12</td>
+                            <td>8회차</td>
+                            <td>$1,766.32</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+176.63</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#40</td>
+                            <td>2026-06-12</td>
+                            <td>2026-06-15</td>
+                            <td>1회차</td>
+                            <td>$234.68</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+23.47</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#41</td>
+                            <td>2026-06-15</td>
+                            <td>2026-06-18</td>
+                            <td>3회차</td>
+                            <td>$772.48</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+77.25</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#42</td>
+                            <td>2026-06-18</td>
+                            <td>2026-06-30</td>
+                            <td>7회차</td>
+                            <td>$1,529.27</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">$+152.93</td>
+                            <td style="color: var(--accent-green); font-weight: 600;">+10.0%</td>
+                            <td><span class="badge status-profit">익절 완료</span></td>
+                        </tr>
+        
+                        <tr>
+                            <td>#43</td>
+                            <td>2026-06-30</td>
+                            <td>2026-07-01</td>
+                            <td>2회차</td>
+                            <td>$516.73</td>
+                            <td style="color: var(--accent-red); font-weight: 600;">$-33.53</td>
+                            <td style="color: var(--accent-red); font-weight: 600;">-6.49%</td>
+                            <td><span class="badge status-hold">미청산 (보유)</span></td>
+                        </tr>
+        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Configuration Script -->
+    <script>
+        const dates = ["2021-07-01", "2021-07-02", "2021-07-06", "2021-07-07", "2021-07-08", "2021-07-09", "2021-07-12", "2021-07-13", "2021-07-14", "2021-07-15", "2021-07-16", "2021-07-19", "2021-07-20", "2021-07-21", "2021-07-22", "2021-07-23", "2021-07-26", "2021-07-27", "2021-07-28", "2021-07-29", "2021-07-30", "2021-08-02", "2021-08-03", "2021-08-04", "2021-08-05", "2021-08-06", "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-16", "2021-08-17", "2021-08-18", "2021-08-19", "2021-08-20", "2021-08-23", "2021-08-24", "2021-08-25", "2021-08-26", "2021-08-27", "2021-08-30", "2021-08-31", "2021-09-01", "2021-09-02", "2021-09-03", "2021-09-07", "2021-09-08", "2021-09-09", "2021-09-10", "2021-09-13", "2021-09-14", "2021-09-15", "2021-09-16", "2021-09-17", "2021-09-20", "2021-09-21", "2021-09-22", "2021-09-23", "2021-09-24", "2021-09-27", "2021-09-28", "2021-09-29", "2021-09-30", "2021-10-01", "2021-10-04", "2021-10-05", "2021-10-06", "2021-10-07", "2021-10-08", "2021-10-11", "2021-10-12", "2021-10-13", "2021-10-14", "2021-10-15", "2021-10-18", "2021-10-19", "2021-10-20", "2021-10-21", "2021-10-22", "2021-10-25", "2021-10-26", "2021-10-27", "2021-10-28", "2021-10-29", "2021-11-01", "2021-11-02", "2021-11-03", "2021-11-04", "2021-11-05", "2021-11-08", "2021-11-09", "2021-11-10", "2021-11-11", "2021-11-12", "2021-11-15", "2021-11-16", "2021-11-17", "2021-11-18", "2021-11-19", "2021-11-22", "2021-11-23", "2021-11-24", "2021-11-26", "2021-11-29", "2021-11-30", "2021-12-01", "2021-12-02", "2021-12-03", "2021-12-06", "2021-12-07", "2021-12-08", "2021-12-09", "2021-12-10", "2021-12-13", "2021-12-14", "2021-12-15", "2021-12-16", "2021-12-17", "2021-12-20", "2021-12-21", "2021-12-22", "2021-12-23", "2021-12-27", "2021-12-28", "2021-12-29", "2021-12-30", "2021-12-31", "2022-01-03", "2022-01-04", "2022-01-05", "2022-01-06", "2022-01-07", "2022-01-10", "2022-01-11", "2022-01-12", "2022-01-13", "2022-01-14", "2022-01-18", "2022-01-19", "2022-01-20", "2022-01-21", "2022-01-24", "2022-01-25", "2022-01-26", "2022-01-27", "2022-01-28", "2022-01-31", "2022-02-01", "2022-02-02", "2022-02-03", "2022-02-04", "2022-02-07", "2022-02-08", "2022-02-09", "2022-02-10", "2022-02-11", "2022-02-14", "2022-02-15", "2022-02-16", "2022-02-17", "2022-02-18", "2022-02-22", "2022-02-23", "2022-02-24", "2022-02-25", "2022-02-28", "2022-03-01", "2022-03-02", "2022-03-03", "2022-03-04", "2022-03-07", "2022-03-08", "2022-03-09", "2022-03-10", "2022-03-11", "2022-03-14", "2022-03-15", "2022-03-16", "2022-03-17", "2022-03-18", "2022-03-21", "2022-03-22", "2022-03-23", "2022-03-24", "2022-03-25", "2022-03-28", "2022-03-29", "2022-03-30", "2022-03-31", "2022-04-01", "2022-04-04", "2022-04-05", "2022-04-06", "2022-04-07", "2022-04-08", "2022-04-11", "2022-04-12", "2022-04-13", "2022-04-14", "2022-04-18", "2022-04-19", "2022-04-20", "2022-04-21", "2022-04-22", "2022-04-25", "2022-04-26", "2022-04-27", "2022-04-28", "2022-04-29", "2022-05-02", "2022-05-03", "2022-05-04", "2022-05-05", "2022-05-06", "2022-05-09", "2022-05-10", "2022-05-11", "2022-05-12", "2022-05-13", "2022-05-16", "2022-05-17", "2022-05-18", "2022-05-19", "2022-05-20", "2022-05-23", "2022-05-24", "2022-05-25", "2022-05-26", "2022-05-27", "2022-05-31", "2022-06-01", "2022-06-02", "2022-06-03", "2022-06-06", "2022-06-07", "2022-06-08", "2022-06-09", "2022-06-10", "2022-06-13", "2022-06-14", "2022-06-15", "2022-06-16", "2022-06-17", "2022-06-21", "2022-06-22", "2022-06-23", "2022-06-24", "2022-06-27", "2022-06-28", "2022-06-29", "2022-06-30", "2022-07-01", "2022-07-05", "2022-07-06", "2022-07-07", "2022-07-08", "2022-07-11", "2022-07-12", "2022-07-13", "2022-07-14", "2022-07-15", "2022-07-18", "2022-07-19", "2022-07-20", "2022-07-21", "2022-07-22", "2022-07-25", "2022-07-26", "2022-07-27", "2022-07-28", "2022-07-29", "2022-08-01", "2022-08-02", "2022-08-03", "2022-08-04", "2022-08-05", "2022-08-08", "2022-08-09", "2022-08-10", "2022-08-11", "2022-08-12", "2022-08-15", "2022-08-16", "2022-08-17", "2022-08-18", "2022-08-19", "2022-08-22", "2022-08-23", "2022-08-24", "2022-08-25", "2022-08-26", "2022-08-29", "2022-08-30", "2022-08-31", "2022-09-01", "2022-09-02", "2022-09-06", "2022-09-07", "2022-09-08", "2022-09-09", "2022-09-12", "2022-09-13", "2022-09-14", "2022-09-15", "2022-09-16", "2022-09-19", "2022-09-20", "2022-09-21", "2022-09-22", "2022-09-23", "2022-09-26", "2022-09-27", "2022-09-28", "2022-09-29", "2022-09-30", "2022-10-03", "2022-10-04", "2022-10-05", "2022-10-06", "2022-10-07", "2022-10-10", "2022-10-11", "2022-10-12", "2022-10-13", "2022-10-14", "2022-10-17", "2022-10-18", "2022-10-19", "2022-10-20", "2022-10-21", "2022-10-24", "2022-10-25", "2022-10-26", "2022-10-27", "2022-10-28", "2022-10-31", "2022-11-01", "2022-11-02", "2022-11-03", "2022-11-04", "2022-11-07", "2022-11-08", "2022-11-09", "2022-11-10", "2022-11-11", "2022-11-14", "2022-11-15", "2022-11-16", "2022-11-17", "2022-11-18", "2022-11-21", "2022-11-22", "2022-11-23", "2022-11-25", "2022-11-28", "2022-11-29", "2022-11-30", "2022-12-01", "2022-12-02", "2022-12-05", "2022-12-06", "2022-12-07", "2022-12-08", "2022-12-09", "2022-12-12", "2022-12-13", "2022-12-14", "2022-12-15", "2022-12-16", "2022-12-19", "2022-12-20", "2022-12-21", "2022-12-22", "2022-12-23", "2022-12-27", "2022-12-28", "2022-12-29", "2022-12-30", "2023-01-03", "2023-01-04", "2023-01-05", "2023-01-06", "2023-01-09", "2023-01-10", "2023-01-11", "2023-01-12", "2023-01-13", "2023-01-17", "2023-01-18", "2023-01-19", "2023-01-20", "2023-01-23", "2023-01-24", "2023-01-25", "2023-01-26", "2023-01-27", "2023-01-30", "2023-01-31", "2023-02-01", "2023-02-02", "2023-02-03", "2023-02-06", "2023-02-07", "2023-02-08", "2023-02-09", "2023-02-10", "2023-02-13", "2023-02-14", "2023-02-15", "2023-02-16", "2023-02-17", "2023-02-21", "2023-02-22", "2023-02-23", "2023-02-24", "2023-02-27", "2023-02-28", "2023-03-01", "2023-03-02", "2023-03-03", "2023-03-06", "2023-03-07", "2023-03-08", "2023-03-09", "2023-03-10", "2023-03-13", "2023-03-14", "2023-03-15", "2023-03-16", "2023-03-17", "2023-03-20", "2023-03-21", "2023-03-22", "2023-03-23", "2023-03-24", "2023-03-27", "2023-03-28", "2023-03-29", "2023-03-30", "2023-03-31", "2023-04-03", "2023-04-04", "2023-04-05", "2023-04-06", "2023-04-10", "2023-04-11", "2023-04-12", "2023-04-13", "2023-04-14", "2023-04-17", "2023-04-18", "2023-04-19", "2023-04-20", "2023-04-21", "2023-04-24", "2023-04-25", "2023-04-26", "2023-04-27", "2023-04-28", "2023-05-01", "2023-05-02", "2023-05-03", "2023-05-04", "2023-05-05", "2023-05-08", "2023-05-09", "2023-05-10", "2023-05-11", "2023-05-12", "2023-05-15", "2023-05-16", "2023-05-17", "2023-05-18", "2023-05-19", "2023-05-22", "2023-05-23", "2023-05-24", "2023-05-25", "2023-05-26", "2023-05-30", "2023-05-31", "2023-06-01", "2023-06-02", "2023-06-05", "2023-06-06", "2023-06-07", "2023-06-08", "2023-06-09", "2023-06-12", "2023-06-13", "2023-06-14", "2023-06-15", "2023-06-16", "2023-06-20", "2023-06-21", "2023-06-22", "2023-06-23", "2023-06-26", "2023-06-27", "2023-06-28", "2023-06-29", "2023-06-30", "2023-07-03", "2023-07-05", "2023-07-06", "2023-07-07", "2023-07-10", "2023-07-11", "2023-07-12", "2023-07-13", "2023-07-14", "2023-07-17", "2023-07-18", "2023-07-19", "2023-07-20", "2023-07-21", "2023-07-24", "2023-07-25", "2023-07-26", "2023-07-27", "2023-07-28", "2023-07-31", "2023-08-01", "2023-08-02", "2023-08-03", "2023-08-04", "2023-08-07", "2023-08-08", "2023-08-09", "2023-08-10", "2023-08-11", "2023-08-14", "2023-08-15", "2023-08-16", "2023-08-17", "2023-08-18", "2023-08-21", "2023-08-22", "2023-08-23", "2023-08-24", "2023-08-25", "2023-08-28", "2023-08-29", "2023-08-30", "2023-08-31", "2023-09-01", "2023-09-05", "2023-09-06", "2023-09-07", "2023-09-08", "2023-09-11", "2023-09-12", "2023-09-13", "2023-09-14", "2023-09-15", "2023-09-18", "2023-09-19", "2023-09-20", "2023-09-21", "2023-09-22", "2023-09-25", "2023-09-26", "2023-09-27", "2023-09-28", "2023-09-29", "2023-10-02", "2023-10-03", "2023-10-04", "2023-10-05", "2023-10-06", "2023-10-09", "2023-10-10", "2023-10-11", "2023-10-12", "2023-10-13", "2023-10-16", "2023-10-17", "2023-10-18", "2023-10-19", "2023-10-20", "2023-10-23", "2023-10-24", "2023-10-25", "2023-10-26", "2023-10-27", "2023-10-30", "2023-10-31", "2023-11-01", "2023-11-02", "2023-11-03", "2023-11-06", "2023-11-07", "2023-11-08", "2023-11-09", "2023-11-10", "2023-11-13", "2023-11-14", "2023-11-15", "2023-11-16", "2023-11-17", "2023-11-20", "2023-11-21", "2023-11-22", "2023-11-24", "2023-11-27", "2023-11-28", "2023-11-29", "2023-11-30", "2023-12-01", "2023-12-04", "2023-12-05", "2023-12-06", "2023-12-07", "2023-12-08", "2023-12-11", "2023-12-12", "2023-12-13", "2023-12-14", "2023-12-15", "2023-12-18", "2023-12-19", "2023-12-20", "2023-12-21", "2023-12-22", "2023-12-26", "2023-12-27", "2023-12-28", "2023-12-29", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05", "2024-01-08", "2024-01-09", "2024-01-10", "2024-01-11", "2024-01-12", "2024-01-16", "2024-01-17", "2024-01-18", "2024-01-19", "2024-01-22", "2024-01-23", "2024-01-24", "2024-01-25", "2024-01-26", "2024-01-29", "2024-01-30", "2024-01-31", "2024-02-01", "2024-02-02", "2024-02-05", "2024-02-06", "2024-02-07", "2024-02-08", "2024-02-09", "2024-02-12", "2024-02-13", "2024-02-14", "2024-02-15", "2024-02-16", "2024-02-20", "2024-02-21", "2024-02-22", "2024-02-23", "2024-02-26", "2024-02-27", "2024-02-28", "2024-02-29", "2024-03-01", "2024-03-04", "2024-03-05", "2024-03-06", "2024-03-07", "2024-03-08", "2024-03-11", "2024-03-12", "2024-03-13", "2024-03-14", "2024-03-15", "2024-03-18", "2024-03-19", "2024-03-20", "2024-03-21", "2024-03-22", "2024-03-25", "2024-03-26", "2024-03-27", "2024-03-28", "2024-04-01", "2024-04-02", "2024-04-03", "2024-04-04", "2024-04-05", "2024-04-08", "2024-04-09", "2024-04-10", "2024-04-11", "2024-04-12", "2024-04-15", "2024-04-16", "2024-04-17", "2024-04-18", "2024-04-19", "2024-04-22", "2024-04-23", "2024-04-24", "2024-04-25", "2024-04-26", "2024-04-29", "2024-04-30", "2024-05-01", "2024-05-02", "2024-05-03", "2024-05-06", "2024-05-07", "2024-05-08", "2024-05-09", "2024-05-10", "2024-05-13", "2024-05-14", "2024-05-15", "2024-05-16", "2024-05-17", "2024-05-20", "2024-05-21", "2024-05-22", "2024-05-23", "2024-05-24", "2024-05-28", "2024-05-29", "2024-05-30", "2024-05-31", "2024-06-03", "2024-06-04", "2024-06-05", "2024-06-06", "2024-06-07", "2024-06-10", "2024-06-11", "2024-06-12", "2024-06-13", "2024-06-14", "2024-06-17", "2024-06-18", "2024-06-20", "2024-06-21", "2024-06-24", "2024-06-25", "2024-06-26", "2024-06-27", "2024-06-28", "2024-07-01", "2024-07-02", "2024-07-03", "2024-07-05", "2024-07-08", "2024-07-09", "2024-07-10", "2024-07-11", "2024-07-12", "2024-07-15", "2024-07-16", "2024-07-17", "2024-07-18", "2024-07-19", "2024-07-22", "2024-07-23", "2024-07-24", "2024-07-25", "2024-07-26", "2024-07-29", "2024-07-30", "2024-07-31", "2024-08-01", "2024-08-02", "2024-08-05", "2024-08-06", "2024-08-07", "2024-08-08", "2024-08-09", "2024-08-12", "2024-08-13", "2024-08-14", "2024-08-15", "2024-08-16", "2024-08-19", "2024-08-20", "2024-08-21", "2024-08-22", "2024-08-23", "2024-08-26", "2024-08-27", "2024-08-28", "2024-08-29", "2024-08-30", "2024-09-03", "2024-09-04", "2024-09-05", "2024-09-06", "2024-09-09", "2024-09-10", "2024-09-11", "2024-09-12", "2024-09-13", "2024-09-16", "2024-09-17", "2024-09-18", "2024-09-19", "2024-09-20", "2024-09-23", "2024-09-24", "2024-09-25", "2024-09-26", "2024-09-27", "2024-09-30", "2024-10-01", "2024-10-02", "2024-10-03", "2024-10-04", "2024-10-07", "2024-10-08", "2024-10-09", "2024-10-10", "2024-10-11", "2024-10-14", "2024-10-15", "2024-10-16", "2024-10-17", "2024-10-18", "2024-10-21", "2024-10-22", "2024-10-23", "2024-10-24", "2024-10-25", "2024-10-28", "2024-10-29", "2024-10-30", "2024-10-31", "2024-11-01", "2024-11-04", "2024-11-05", "2024-11-06", "2024-11-07", "2024-11-08", "2024-11-11", "2024-11-12", "2024-11-13", "2024-11-14", "2024-11-15", "2024-11-18", "2024-11-19", "2024-11-20", "2024-11-21", "2024-11-22", "2024-11-25", "2024-11-26", "2024-11-27", "2024-11-29", "2024-12-02", "2024-12-03", "2024-12-04", "2024-12-05", "2024-12-06", "2024-12-09", "2024-12-10", "2024-12-11", "2024-12-12", "2024-12-13", "2024-12-16", "2024-12-17", "2024-12-18", "2024-12-19", "2024-12-20", "2024-12-23", "2024-12-24", "2024-12-26", "2024-12-27", "2024-12-30", "2024-12-31", "2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-10", "2025-01-13", "2025-01-14", "2025-01-15", "2025-01-16", "2025-01-17", "2025-01-21", "2025-01-22", "2025-01-23", "2025-01-24", "2025-01-27", "2025-01-28", "2025-01-29", "2025-01-30", "2025-01-31", "2025-02-03", "2025-02-04", "2025-02-05", "2025-02-06", "2025-02-07", "2025-02-10", "2025-02-11", "2025-02-12", "2025-02-13", "2025-02-14", "2025-02-18", "2025-02-19", "2025-02-20", "2025-02-21", "2025-02-24", "2025-02-25", "2025-02-26", "2025-02-27", "2025-02-28", "2025-03-03", "2025-03-04", "2025-03-05", "2025-03-06", "2025-03-07", "2025-03-10", "2025-03-11", "2025-03-12", "2025-03-13", "2025-03-14", "2025-03-17", "2025-03-18", "2025-03-19", "2025-03-20", "2025-03-21", "2025-03-24", "2025-03-25", "2025-03-26", "2025-03-27", "2025-03-28", "2025-03-31", "2025-04-01", "2025-04-02", "2025-04-03", "2025-04-04", "2025-04-07", "2025-04-08", "2025-04-09", "2025-04-10", "2025-04-11", "2025-04-14", "2025-04-15", "2025-04-16", "2025-04-17", "2025-04-21", "2025-04-22", "2025-04-23", "2025-04-24", "2025-04-25", "2025-04-28", "2025-04-29", "2025-04-30", "2025-05-01", "2025-05-02", "2025-05-05", "2025-05-06", "2025-05-07", "2025-05-08", "2025-05-09", "2025-05-12", "2025-05-13", "2025-05-14", "2025-05-15", "2025-05-16", "2025-05-19", "2025-05-20", "2025-05-21", "2025-05-22", "2025-05-23", "2025-05-27", "2025-05-28", "2025-05-29", "2025-05-30", "2025-06-02", "2025-06-03", "2025-06-04", "2025-06-05", "2025-06-06", "2025-06-09", "2025-06-10", "2025-06-11", "2025-06-12", "2025-06-13", "2025-06-16", "2025-06-17", "2025-06-18", "2025-06-20", "2025-06-23", "2025-06-24", "2025-06-25", "2025-06-26", "2025-06-27", "2025-06-30", "2025-07-01", "2025-07-02", "2025-07-03", "2025-07-07", "2025-07-08", "2025-07-09", "2025-07-10", "2025-07-11", "2025-07-14", "2025-07-15", "2025-07-16", "2025-07-17", "2025-07-18", "2025-07-21", "2025-07-22", "2025-07-23", "2025-07-24", "2025-07-25", "2025-07-28", "2025-07-29", "2025-07-30", "2025-07-31", "2025-08-01", "2025-08-04", "2025-08-05", "2025-08-06", "2025-08-07", "2025-08-08", "2025-08-11", "2025-08-12", "2025-08-13", "2025-08-14", "2025-08-15", "2025-08-18", "2025-08-19", "2025-08-20", "2025-08-21", "2025-08-22", "2025-08-25", "2025-08-26", "2025-08-27", "2025-08-28", "2025-08-29", "2025-09-02", "2025-09-03", "2025-09-04", "2025-09-05", "2025-09-08", "2025-09-09", "2025-09-10", "2025-09-11", "2025-09-12", "2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-22", "2025-09-23", "2025-09-24", "2025-09-25", "2025-09-26", "2025-09-29", "2025-09-30", "2025-10-01", "2025-10-02", "2025-10-03", "2025-10-06", "2025-10-07", "2025-10-08", "2025-10-09", "2025-10-10", "2025-10-13", "2025-10-14", "2025-10-15", "2025-10-16", "2025-10-17", "2025-10-20", "2025-10-21", "2025-10-22", "2025-10-23", "2025-10-24", "2025-10-27", "2025-10-28", "2025-10-29", "2025-10-30", "2025-10-31", "2025-11-03", "2025-11-04", "2025-11-05", "2025-11-06", "2025-11-07", "2025-11-10", "2025-11-11", "2025-11-12", "2025-11-13", "2025-11-14", "2025-11-17", "2025-11-18", "2025-11-19", "2025-11-20", "2025-11-21", "2025-11-24", "2025-11-25", "2025-11-26", "2025-11-28", "2025-12-01", "2025-12-02", "2025-12-03", "2025-12-04", "2025-12-05", "2025-12-08", "2025-12-09", "2025-12-10", "2025-12-11", "2025-12-12", "2025-12-15", "2025-12-16", "2025-12-17", "2025-12-18", "2025-12-19", "2025-12-22", "2025-12-23", "2025-12-24", "2025-12-26", "2025-12-29", "2025-12-30", "2025-12-31", "2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-12", "2026-01-13", "2026-01-14", "2026-01-15", "2026-01-16", "2026-01-20", "2026-01-21", "2026-01-22", "2026-01-23", "2026-01-26", "2026-01-27", "2026-01-28", "2026-01-29", "2026-01-30", "2026-02-02", "2026-02-03", "2026-02-04", "2026-02-05", "2026-02-06", "2026-02-09", "2026-02-10", "2026-02-11", "2026-02-12", "2026-02-13", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-23", "2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27", "2026-03-02", "2026-03-03", "2026-03-04", "2026-03-05", "2026-03-06", "2026-03-09", "2026-03-10", "2026-03-11", "2026-03-12", "2026-03-13", "2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-23", "2026-03-24", "2026-03-25", "2026-03-26", "2026-03-27", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17", "2026-04-20", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-04-30", "2026-05-01", "2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30", "2026-07-01"];
+        const assets = [10000.0, 10000.73, 9999.65, 9982.25, 9959.29, 10003.09, 10042.1, 10022.3, 10008.12, 9915.55, 9808.81, 9812.56, 9893.13, 10104.56, 10034.38, 10088.08, 10081.15, 9914.82, 10074.59, 10260.13, 10341.63, 10342.43, 10345.26, 10355.85, 10351.85, 10345.52, 10338.6, 10304.9, 10297.77, 10249.55, 10281.35, 10261.27, 10137.49, 10038.99, 10098.34, 10152.34, 10392.53, 10395.59, 10478.96, 10470.74, 10708.44, 10708.86, 10704.59, 10699.31, 10704.2, 10722.81, 10712.27, 10666.55, 10684.96, 10722.57, 10772.3, 10772.3, 10804.03, 10826.42, 10712.3, 10533.36, 10550.65, 10719.22, 10840.8, 10830.5, 10811.97, 10408.46, 10240.04, 10233.15, 10235.92, 9935.38, 10107.01, 10152.83, 10309.98, 10178.17, 10054.0, 9871.5, 9957.88, 10469.94, 10593.73, 10759.65, 11019.63, 10980.9, 11218.91, 10950.99, 11129.57, 11111.89, 10958.06, 11463.03, 11463.66, 11471.96, 11483.3, 11499.04, 11517.59, 11519.36, 11527.31, 11526.61, 11488.67, 11530.28, 11553.03, 11550.74, 11601.64, 11570.43, 11648.32, 11648.93, 11640.05, 11635.49, 11657.9, 11589.89, 11705.47, 11637.23, 11603.85, 11606.19, 11596.59, 11585.37, 11892.41, 11891.15, 11869.56, 11883.68, 11820.56, 11807.44, 11939.91, 11745.16, 11738.1, 11695.28, 11902.36, 11971.33, 12049.69, 12149.4, 12147.0, 12149.17, 12127.95, 12123.86, 12186.72, 12169.1, 12035.94, 12070.77, 11916.59, 11924.59, 12039.52, 12089.68, 11902.42, 12103.18, 11671.51, 11386.42, 11095.79, 10946.21, 11070.32, 10666.21, 10826.49, 10313.95, 10510.46, 11142.06, 11285.67, 11674.7, 10879.65, 10982.87, 10976.36, 11409.76, 12033.99, 11361.8, 10319.39, 10327.28, 11381.13, 11396.39, 10481.11, 10256.51, 10065.33, 9541.78, 10323.23, 10680.02, 10530.71, 9671.7, 10358.13, 9859.79, 9320.72, 8314.34, 8620.72, 9351.75, 8929.03, 8529.58, 7990.52, 8688.58, 9617.4, 9743.44, 10173.92, 10140.95, 10256.74, 9694.3, 10741.59, 10726.08, 10861.84, 11418.45, 10598.07, 10099.64, 9616.73, 9940.61, 8955.38, 8495.74, 8495.74, 8065.19, 7716.09, 7667.6, 8014.76, 7545.42, 7811.12, 8154.4, 8105.91, 7661.78, 7320.45, 7557.06, 6928.68, 6835.59, 7539.6, 6891.83, 7330.14, 7448.45, 8012.82, 7231.23, 7107.11, 6403.1, 6668.8, 6292.55, 6342.98, 6940.32, 6723.1, 7345.66, 6622.25, 6556.31, 6527.22, 6579.59, 6282.85, 6494.25, 6950.02, 7477.54, 7399.96, 7176.93, 7659.85, 7219.6, 7215.72, 7349.54, 7021.77, 6668.8, 6226.61, 5594.36, 5635.09, 5799.94, 5210.35, 5235.56, 5448.9, 5353.55, 5299.18, 5648.72, 5646.78, 5405.98, 5209.85, 5122.46, 4831.18, 4879.72, 4926.33, 5240.92, 5279.76, 5085.57, 5097.22, 5159.36, 5310.83, 5512.79, 5475.89, 5870.1, 6112.84, 6287.62, 6006.04, 5938.07, 5769.12, 6215.76, 6340.05, 6429.37, 6464.33, 6446.85, 6763.39, 6864.37, 6765.33, 6567.25, 6013.8, 6444.91, 6419.67, 6773.09, 6808.05, 6683.77, 6375.0, 6635.22, 6301.21, 5887.58, 5943.9, 5959.43, 6330.34, 5681.74, 5501.14, 5388.51, 5305.0, 5145.77, 5075.86, 4990.41, 5101.1, 5229.27, 5423.46, 5448.71, 4926.33, 4998.18, 4891.38, 4920.5, 4959.34, 4858.03, 4799.58, 4626.19, 4532.67, 4439.15, 4489.81, 4559.95, 4388.5, 4304.72, 4468.38, 4729.45, 4803.48, 4758.67, 4372.91, 4191.72, 4053.4, 4008.58, 4137.17, 3928.71, 4006.64, 4020.27, 4053.4, 4078.72, 4250.17, 4269.65, 4382.65, 4333.95, 4238.48, 4429.41, 4316.41, 4351.48, 4183.93, 4115.74, 4330.05, 4446.95, 4559.95, 4378.76, 4932.07, 5154.17, 5066.5, 5280.81, 4941.81, 4988.57, 5011.95, 4895.05, 5091.83, 5173.65, 5084.03, 4885.31, 4863.88, 5271.07, 5208.72, 5117.15, 5031.43, 4861.93, 4858.03, 5037.27, 4978.83, 5107.41, 5234.05, 5111.31, 4799.58, 4743.08, 4661.26, 4613.94, 4756.67, 4490.76, 4488.81, 4391.04, 4310.88, 4469.25, 4469.25, 4408.64, 4547.46, 4449.7, 4703.88, 4832.93, 4918.96, 5003.03, 5085.15, 5110.57, 5132.08, 5085.15, 4879.85, 5079.28, 5460.55, 5401.9, 5419.49, 5558.31, 5507.48, 5276.76, 5417.54, 5863.33, 6082.31, 5888.75, 5726.46, 6017.79, 5802.72, 5820.31, 5667.81, 5789.03, 5966.96, 6008.02, 5761.66, 5609.15, 5317.82, 5282.63, 5527.03, 5376.48, 5413.63, 5442.96, 5448.82, 5513.34, 5644.34, 5544.63, 5442.96, 5669.76, 5493.79, 5325.64, 5319.78, 5554.4, 5450.78, 5789.03, 5732.33, 5826.18, 5842.82, 5758.62, 6003.39, 5823.24, 5705.75, 5639.17, 5923.11, 6093.47, 6162.01, 6066.06, 5866.32, 5695.96, 5645.05, 5788.0, 5752.75, 5580.43, 5647.01, 5629.38, 5629.38, 5668.55, 5566.72, 5554.97, 5488.39, 5443.36, 5163.34, 5196.63, 5229.92, 5365.03, 5449.23, 5388.53, 5288.66, 5241.67, 5412.03, 5447.27, 5308.24, 5380.7, 5333.7, 5323.91, 5537.35, 5525.6, 5739.04, 6038.64, 5983.81, 6011.23, 5891.78, 5717.5, 6328.45, 7058.85, 7056.89, 6720.09, 6917.86, 6890.45, 6684.84, 6833.66, 6816.04, 6941.36, 6964.86, 7395.66, 7583.64, 7795.12, 7660.01, 7520.98, 7405.45, 7046.15, 7108.91, 6871.61, 6910.83, 7357.99, 7230.51, 7248.16, 7448.2, 7577.64, 7256.0, 7085.38, 7081.46, 7348.18, 7352.1, 7616.86, 7928.69, 7722.77, 8081.67, 8120.89, 7930.65, 7342.3, 7465.85, 7461.93, 7703.16, 7493.31, 7767.87, 8099.32, 8150.31, 8173.84, 7536.45, 7510.96, 7458.01, 7610.98, 7375.64, 7106.95, 7052.04, 6724.52, 7075.57, 6853.96, 6604.89, 6483.29, 6530.36, 6869.65, 6765.7, 7010.85, 6581.35, 6630.38, 6779.43, 7103.03, 7167.75, 7257.96, 7289.34, 7289.34, 7175.59, 6867.69, 6795.12, 6785.32, 6685.29, 6742.17, 6824.54, 6459.76, 6487.21, 6395.47, 6208.85, 6000.62, 6083.13, 6157.78, 5965.26, 6051.7, 6240.28, 6285.47, 6326.72, 6092.95, 6240.28, 6193.14, 6403.33, 6385.65, 6517.27, 6607.64, 6641.03, 6307.07, 6470.12, 6369.94, 6169.56, 6002.58, 5847.39, 5798.28, 5925.97, 5519.33, 5472.18, 5544.87, 5432.89, 5505.58, 5711.85, 5933.83, 6189.21, 6163.67, 6232.42, 6246.18, 6191.17, 6625.31, 6511.38, 6927.84, 7024.1, 7041.78, 7122.32, 7328.59, 7065.35, 7096.78, 7114.46, 7090.89, 7006.42, 7140.0, 7059.46, 7110.53, 6961.24, 6886.59, 6796.22, 7132.14, 7234.29, 7707.73, 7813.81, 8063.29, 8509.22, 8583.87, 8528.87, 8619.23, 8098.65, 8536.33, 8585.55, 8910.41, 8947.82, 8922.23, 8760.78, 8099.24, 7746.81, 7614.9, 7683.81, 8176.03, 8174.06, 8124.84, 8181.93, 8111.05, 8325.66, 8176.03, 8719.43, 9442.01, 9520.76, 9650.71, 9946.04, 9886.97, 9274.65, 9477.45, 9180.15, 8898.6, 8967.51, 9203.77, 9489.26, 9239.21, 9540.45, 9892.88, 10320.12, 10286.65, 9831.84, 10280.74, 10278.77, 10125.2, 9749.15, 9694.02, 10733.58, 10487.47, 10692.23, 10672.55, 10414.62, 11013.16, 12094.06, 12377.58, 11800.7, 12466.18, 13106.48, 13100.21, 13086.92, 13119.06, 13070.21, 13020.78, 13000.93, 12994.73, 12954.71, 13039.69, 13181.35, 13187.52, 13158.32, 13109.47, 13197.04, 13198.91, 13399.43, 13397.35, 13399.35, 13354.09, 13376.27, 13385.19, 13425.73, 13352.32, 13454.54, 13281.02, 13200.63, 13240.72, 13035.68, 12894.5, 12594.45, 12698.07, 12879.1, 13011.68, 13209.66, 13472.08, 13563.56, 13281.64, 12814.66, 13084.73, 13429.21, 13755.19, 13620.83, 13628.13, 13561.03, 13723.93, 13761.21, 14016.66, 14020.4, 14017.7, 14012.24, 14046.03, 14042.13, 14066.0, 14108.43, 14111.02, 14119.9, 14102.37, 14091.95, 14069.91, 14069.91, 14043.98, 14228.86, 14195.01, 14172.04, 14251.71, 14260.65, 14325.74, 14327.85, 14325.54, 14344.04, 14367.67, 14309.68, 14281.88, 14184.41, 14238.66, 14223.65, 14190.9, 14250.28, 14250.28, 14355.79, 14493.25, 14514.81, 14631.53, 14631.47, 14652.65, 14608.41, 14629.35, 14632.28, 14651.53, 14397.04, 14399.61, 14268.21, 14466.96, 14375.18, 14045.67, 13892.74, 14011.08, 14004.34, 13697.04, 14225.83, 13478.5, 12987.6, 12849.49, 12921.4, 12654.81, 13296.69, 13237.99, 13293.39, 13860.21, 13824.9, 14607.43, 14575.71, 14899.66, 14633.53, 14927.69, 14158.14, 14704.41, 14122.3, 14344.97, 13956.95, 13869.97, 14439.48, 12473.25, 12525.11, 12401.09, 11546.51, 11877.97, 12085.42, 12958.04, 12865.59, 13230.88, 12944.51, 12944.51, 12714.52, 13611.95, 13257.94, 13341.36, 13614.69, 13766.03, 14649.24, 14199.73, 13978.36, 13334.59, 13589.84, 13646.31, 13978.36, 13917.37, 14154.55, 14414.32, 14238.13, 14427.87, 14913.52, 13479.16, 13476.9, 13646.31, 13659.86, 13619.2, 13528.85, 13327.81, 13438.5, 13662.12, 13677.93, 14272.01, 13375.25, 12489.78, 12656.94, 12548.51, 12781.17, 13400.1, 13872.19, 13691.49, 13095.15, 12846.68, 12399.43, 12379.1, 11715.0, 11943.14, 11983.8, 11821.17, 12128.37, 12128.37, 12318.11, 12047.05, 11787.28, 12031.24, 12514.63, 12408.46, 12668.23, 12270.68, 12381.36, 12295.52, 11805.35, 12270.68, 12121.59, 12627.57, 13036.42, 12724.7, 11979.28, 11633.68, 11859.57, 12395.75, 12597.35, 12617.74, 12418.4, 12021.98, 11879.27, 11960.82, 12447.85, 13052.66, 12749.12, 12529.39, 12049.16, 12001.6, 12062.76, 12475.03, 12486.35, 13052.66, 13324.49, 13655.21, 13603.11, 13088.91, 11369.6, 11439.82, 11510.04, 11843.03, 11813.58, 11494.18, 11639.16, 11967.62, 11965.35, 11657.28, 11888.33, 11899.66, 11931.37, 12142.04, 12160.16, 12486.35, 12821.61, 12873.71, 12219.06, 11754.69, 11371.86, 11648.22, 10619.8, 10841.8, 10338.92, 10370.63, 10665.11, 10048.97, 10422.73, 9768.08, 9636.69, 9838.3, 9790.73, 10178.08, 10402.34, 10207.53, 10309.47, 10207.53, 10060.29, 10449.91, 10362.43, 9962.51, 9728.47, 9335.37, 9317.19, 9317.19, 9387.63, 8285.58, 7676.61, 7772.05, 7567.55, 8594.61, 7881.12, 8017.45, 8071.99, 8101.53, 7815.22, 7783.41, 7672.07, 7778.87, 8031.09, 8419.64, 8496.9, 8485.54, 8387.83, 8456.0, 8442.37, 8712.77, 8658.23, 8565.07, 8710.49, 8796.84, 8899.09, 9585.32, 9919.34, 9973.87, 9889.8, 9871.62, 9796.64, 9776.19, 9555.78, 9444.44, 9267.2, 9621.67, 9564.87, 9601.22, 9367.18, 9533.05, 9851.17, 10030.68, 9967.06, 10051.13, 10369.25, 10666.91, 10610.11, 10621.47, 10246.54, 10669.19, 10560.12, 10603.29, 10512.4, 10596.47, 11152.2, 11295.81, 11437.13, 11416.62, 11416.62, 11325.44, 11630.89, 11717.5, 11384.71, 11703.83, 11767.65, 11931.77, 11913.54, 11733.46, 11913.54, 11854.27, 11920.38, 11922.66, 11961.41, 11692.43, 11569.34, 11532.87, 11528.31, 11820.08, 11854.27, 11986.48, 11386.99, 11181.83, 11391.54, 11282.13, 11161.32, 11391.54, 11553.38, 11530.59, 12075.38, 12364.87, 12399.06, 11931.77, 11968.24, 11674.2, 11573.9, 11471.32, 11950.01, 11915.82, 12061.7, 12116.41, 12196.19, 11628.61, 11448.53, 11371.03, 11539.71, 11722.06, 11865.67, 11888.46, 12212.15, 12342.07, 12371.71, 12531.27, 12640.68, 12638.4, 13360.99, 13219.66, 13541.06, 13513.7, 13490.9, 13411.1, 13449.86, 13449.86, 13636.83, 14097.41, 14603.59, 14409.78, 15525.39, 15522.51, 15551.89, 15546.3, 15439.34, 15541.03, 15481.24, 15583.91, 15603.83, 15593.51, 15679.56, 15678.83, 15656.92, 15694.55, 15727.19, 15758.79, 15758.91, 15767.77, 15755.44, 15759.92, 15771.18, 15674.9, 15765.57, 15669.43, 15630.08, 15749.13, 15615.16, 15707.33, 15463.83, 15442.02, 15306.6, 15122.78, 15253.35, 14799.88, 14888.35, 15318.07, 15352.48, 15708.63, 15965.95, 15972.32, 16275.97, 16278.75, 16273.52, 16285.87, 16303.62, 16300.71, 16332.57, 16315.68, 16158.45, 16143.5, 16119.85, 15938.65, 16060.44, 16229.59, 16321.78, 16349.39, 16382.85, 16382.85, 16355.06, 16343.94, 16217.69, 16630.35, 16632.33, 16647.58, 16645.86, 16630.59, 16677.1, 16686.3, 16727.98, 16727.29, 16758.58, 16761.25, 16752.66, 16801.89, 16802.13, 16795.85, 16789.53, 16836.98, 16883.24, 16883.62, 16859.54, 16882.8, 16840.18, 16722.12, 16723.29, 16928.43, 16988.07, 16968.67, 17065.25, 17060.3, 17067.69, 17066.04, 17083.19, 17071.82, 17095.58, 17077.45, 17121.25, 17184.55, 17178.03, 17165.63, 17165.54, 17046.06, 17101.97, 17062.14, 16879.37, 17051.34, 17097.51, 17158.92, 16895.17, 16917.34, 17081.57, 17157.11, 17097.12, 17154.5, 16881.11, 17029.62, 17190.38, 17368.35, 16660.15, 16441.0, 15852.63, 16613.56, 17090.31, 17146.36, 17391.75, 17602.99, 17841.74, 17846.22, 17860.99, 17865.16, 17877.28, 17879.89, 17893.08, 17918.63, 17919.89, 17924.84, 17953.1, 17963.66, 17974.94, 17970.01, 17928.16, 17972.8, 18039.71, 18075.27, 18072.42, 18113.31, 18127.72, 18113.97, 18169.31, 18182.79, 18153.14, 18189.54, 18196.92, 18098.85, 18024.54, 18025.61, 18223.19, 18275.05, 18349.51, 18368.56, 18360.75, 18375.03, 18374.24, 18383.01, 18453.64, 18467.86, 18442.07, 18249.91, 18358.77, 18310.47, 18180.32, 18508.51, 18630.27, 18653.74, 18607.43, 18623.58, 18730.99, 18752.47, 18654.3, 18649.68, 18732.27, 18581.29, 18690.89, 18883.92, 18850.39];
+        const prices = [41.30131149291992, 42.028961181640625, 41.7573127746582, 40.01095962524414, 38.59447479248047, 40.52516555786133, 42.03868103027344, 41.34983444213867, 40.90353775024414, 38.24519729614258, 35.66447067260742, 35.74209213256836, 37.19738006591797, 40.60277557373047, 39.52586364746094, 40.31172180175781, 40.21470260620117, 37.98324203491211, 39.95274353027344, 42.15509414672851, 43.06708526611328, 43.862640380859375, 44.59999465942383, 46.19112777709961, 45.76422882080078, 45.24033737182617, 44.77463150024414, 43.125301361083984, 42.853633880615234, 41.34983444213867, 42.184200286865234, 41.72819900512695, 39.25421142578125, 37.50784683227539, 38.448936462402344, 39.22509765625, 42.38794708251953, 42.42675018310547, 43.44546127319336, 43.34845352172851, 45.890357971191406, 46.3172492980957, 45.1627082824707, 44.59028625488281, 44.92015838623047, 45.8321533203125, 45.37615966796875, 43.61039352416992, 44.1925163269043, 45.20151138305664, 46.4433708190918, 46.4433708190918, 47.14191818237305, 47.607608795166016, 45.356746673583984, 42.009559631347656, 42.30062484741211, 44.88134765625, 46.66651916503906, 46.52098083496094, 46.26873016357422, 40.9714469909668, 38.92433547973633, 38.84672546386719, 38.875823974609375, 35.916725158691406, 37.49814224243164, 37.89593505859375, 39.18629455566406, 38.15789031982422, 37.2361946105957, 35.94583511352539, 36.527950286865234, 39.826622009277344, 40.59308242797851, 41.58267593383789, 43.10588455200195, 42.88274383544922, 44.231327056884766, 42.73721694946289, 43.71712112426758, 43.62009811401367, 42.77602005004883, 45.59930038452149, 46.22992706298828, 48.47108840942383, 50.275657653808594, 52.07051086425781, 57.31929016113281, 59.094757080078125, 61.64638137817383, 61.51054763793945, 56.22296524047851, 59.80299377441406, 61.4620246887207, 61.31650161743164, 64.1785888671875, 62.59716796875, 65.95404052734375, 66.56527709960938, 63.480037689208984, 62.810604095458984, 64.88683319091797, 59.541038513183594, 66.3712387084961, 62.74270248413086, 61.27769470214844, 61.36501693725586, 61.05455017089844, 60.7343864440918, 69.84452819824219, 68.58329010009766, 63.936038970947266, 65.58538055419922, 60.482139587402344, 59.68657302856445, 66.08987426757812, 57.46481704711914, 57.20286560058594, 55.83488082885742, 61.62253952026367, 63.44695663452149, 65.41695404052734, 70.83195495605469, 68.43498992919922, 68.90080261230469, 66.3388442993164, 65.99920654296875, 69.96829223632812, 68.9687271118164, 62.11747360229492, 63.602237701416016, 57.973724365234375, 58.22602844238281, 61.41876220703125, 62.67061996459961, 58.42012405395508, 62.573577880859375, 54.324893951416016, 49.31745147705078, 44.6302604675293, 42.41766357421875, 44.106224060058594, 39.001731872558594, 40.87467193603515, 35.284976959228516, 37.27436447143555, 43.261940002441406, 44.5526237487793, 47.88121032714844, 41.369598388671875, 42.17505645751953, 42.12653732299805, 45.22221755981445, 49.511531829833984, 45.04753875732422, 38.3709602355957, 38.41947555541992, 44.649662017822266, 44.73699951171875, 39.66164016723633, 38.45829772949219, 37.46845245361328, 34.8482780456543, 38.75912857055664, 40.544734954833984, 39.797489166259766, 35.498470306396484, 38.93380355834961, 36.439788818359375, 33.74199295043945, 28.70543670654297, 30.238719940185547, 33.897254943847656, 31.78171157836914, 29.782617568969727, 27.08481216430664, 30.5783748626709, 35.22675323486328, 35.8575325012207, 38.01189804077149, 37.846923828125, 38.42637252807617, 35.61160659790039, 40.85289001464844, 40.77524948120117, 41.45467758178711, 44.24031829833984, 40.13463592529297, 37.64017868041992, 35.223365783691406, 36.844276428222656, 31.913597106933594, 29.613252639770508, 29.613252639770508, 27.45850372314453, 25.711410522460938, 25.46875762939453, 27.206146240234375, 24.857276916503903, 26.1870059967041, 27.904979705810547, 27.662334442138672, 25.439634323120117, 23.731369018554688, 24.915510177612305, 21.770742416381836, 21.304847717285156, 24.828155517578125, 21.58632469177246, 23.77989959716797, 24.371967315673828, 27.196439743041992, 23.28489112854004, 22.663698196411133, 19.140390396118164, 20.470125198364254, 18.587146759033203, 18.839502334594727, 21.8289737701416, 20.74189567565918, 23.85754776000977, 20.237180709838867, 19.90717315673828, 19.76158142089844, 20.023643493652344, 18.53861427307129, 19.596576690673828, 21.877506256103516, 24.517560958862305, 24.12932014465332, 23.013118743896484, 25.429933547973633, 23.226655960083008, 23.20723533630371, 23.8769588470459, 22.236629486083984, 20.470125198364254, 18.257139205932617, 15.092957496643066, 15.296783447265623, 16.121797561645508, 13.171152114868164, 13.297329902648926, 14.36500072479248, 13.887818336486816, 13.615699768066406, 15.365039825439451, 15.355320930480955, 14.15022087097168, 13.168644905090332, 12.73130989074707, 11.273526191711426, 11.516490936279297, 11.749737739562988, 13.324143409729004, 13.518511772155762, 12.546656608581545, 12.604969024658203, 12.91596221923828, 13.674009323120115, 14.68474006652832, 14.500089645385742, 16.472957611083984, 17.687772750854492, 18.56244850158691, 17.153255462646484, 16.8131046295166, 15.967594146728516, 18.20285987854004, 18.824846267700195, 19.27189826965332, 19.44683265686035, 19.359365463256836, 20.943492889404297, 21.44886016845703, 20.953210830688477, 19.961917877197266, 17.19212532043457, 19.349645614624023, 19.22330665588379, 20.992082595825195, 21.167020797729492, 20.545026779174805, 18.99977684020996, 20.302066802978516, 18.630474090576172, 16.5604248046875, 16.84225845336914, 16.920005798339844, 18.77625274658203, 15.530255317687988, 14.626429557800291, 14.062753677368164, 13.644855499267578, 12.84793186187744, 12.49806308746338, 12.07044792175293, 12.62440586090088, 13.265828132629396, 14.23768711090088, 14.364025115966797, 11.749737739562988, 12.109323501586914, 11.574803352355955, 11.720580101013184, 11.914952278137209, 11.40793228149414, 11.1154203414917, 10.247636795043944, 9.779620170593262, 9.311603546142578, 9.565110206604004, 9.916125297546388, 9.05809497833252, 8.638827323913574, 9.457858085632324, 10.76440715789795, 11.13492202758789, 10.910663604736328, 8.980091094970703, 8.073304176330566, 7.381030082702637, 7.1567702293396, 7.800295352935791, 6.7570061683654785, 7.1470208168029785, 7.215272903442383, 7.381030082702637, 7.507783889770508, 8.365817070007324, 8.4633207321167, 9.028841972351074, 8.785083770751953, 8.307315826416016, 9.262849807739258, 8.6973295211792, 8.872836112976074, 8.034302711486816, 7.69304084777832, 8.765581130981445, 9.350604057312012, 9.916125297546388, 9.009342193603516, 11.77844524383545, 12.889988899230955, 12.451221466064451, 13.523761749267578, 11.827198028564451, 12.061205863952637, 12.178211212158203, 11.59319019317627, 12.57797622680664, 12.987491607666016, 12.538975715637209, 11.54443645477295, 11.43718147277832, 13.47500991821289, 13.162997245788574, 12.704730987548828, 12.275713920593262, 11.427433013916016, 11.40793228149414, 12.304966926574709, 12.012454986572266, 12.65597915649414, 13.289752960205078, 12.675481796264648, 11.1154203414917, 10.832659721374512, 10.423142433166504, 10.186344146728516, 10.900660514831545, 9.569878578186035, 9.560094833374023, 9.070837020874023, 8.669645309448242, 9.462241172790527, 9.462241172790527, 9.158903121948242, 9.85364818572998, 9.36439037322998, 10.63646125793457, 11.282280921936035, 11.712827682495115, 12.133588790893556, 12.544564247131348, 12.671772956848145, 12.779410362243652, 12.544564247131348, 11.517125129699709, 12.51520824432373, 14.423315048217772, 14.129759788513184, 14.21782684326172, 14.912571907043455, 14.658158302307127, 13.503512382507324, 14.208041191101074, 16.439056396484375, 17.53499412536621, 16.566267013549805, 15.754097938537598, 17.21208381652832, 16.135717391967773, 16.223779678344727, 15.460540771484377, 16.067222595214844, 16.957670211791992, 17.163158416748047, 15.930227279663086, 15.166986465454102, 13.708998680114746, 13.532866477966309, 14.756009101867676, 14.002553939819336, 14.188470840454102, 14.335248947143556, 14.364604949951172, 14.687511444091797, 15.343120574951172, 14.844076156616213, 14.335248947143556, 15.470325469970703, 14.589662551879885, 13.748139381408691, 13.71878433227539, 14.893001556396484, 14.374388694763184, 16.067222595214844, 15.783449172973633, 16.25313949584961, 16.33643341064453, 15.915043830871582, 17.140029907226562, 16.23843765258789, 15.650444984436035, 15.317246437072754, 16.738235473632812, 17.5908260345459, 17.933822631835938, 17.453624725341797, 16.454036712646484, 15.601447105407717, 15.346647262573242, 16.06203842163086, 15.885643005371094, 15.0232515335083, 15.356447219848633, 15.268247604370115, 15.268247604370115, 15.46424674987793, 14.95465087890625, 14.895851135253906, 14.562654495239258, 14.337257385253906, 12.935873031616213, 13.102469444274902, 13.269068717956545, 13.945261001586914, 14.366657257080078, 14.062860488891602, 13.563064575195312, 13.327869415283203, 14.180459022521973, 14.356857299804688, 13.661065101623535, 14.023661613464355, 13.788461685180664, 13.739465713500977, 14.807653427124023, 14.748852729797363, 15.817042350769045, 17.31642723083496, 17.042030334472656, 17.179231643676758, 16.581436157226562, 15.709245681762695, 18.76681327819824, 22.42217254638672, 22.412378311157227, 20.726791381835938, 21.716583251953125, 21.57938575744629, 20.55039405822754, 21.29519271850586, 21.206987380981445, 21.834184646606445, 21.951780319213867, 24.107763290405273, 25.04854965209961, 26.106937408447266, 25.43074607849121, 24.734952926635746, 24.156757354736328, 22.358646392822266, 22.67272567749023, 21.485109329223633, 21.68140983581543, 23.91923713684082, 23.28125762939453, 23.369592666625977, 24.37072372436523, 25.018516540527344, 23.40885353088379, 22.55494499206543, 22.535314559936523, 23.87015724182129, 23.88979148864746, 25.21482276916504, 26.77541160583496, 25.74483108520508, 27.54098129272461, 27.737285614013672, 26.785226821899418, 23.840717315673828, 24.459062576293945, 24.43943214416504, 25.64668083190918, 24.596471786499023, 25.97057723999023, 27.629314422607425, 27.88450813293457, 28.002288818359375, 24.812402725219727, 24.6848087310791, 24.41980361938477, 25.185375213623047, 24.007568359375, 22.662912368774418, 22.38808822631836, 20.74898147583008, 22.505870819091797, 21.396774291992188, 20.1502628326416, 19.541728973388672, 19.77729225158691, 21.475292205810547, 20.955095291137695, 22.181976318359375, 20.03248405456543, 20.27785873413086, 21.023801803588867, 22.64327812194824, 22.967180252075195, 23.418670654296875, 23.575708389282227, 23.575708389282227, 23.006439208984375, 21.465478897094727, 21.102323532104492, 21.053245544433594, 20.552677154541016, 20.837312698364254, 21.24954605102539, 19.4239501953125, 19.561359405517575, 19.10223960876465, 18.16826629638672, 17.12614631652832, 17.539060592651367, 17.912647247314453, 16.94918441772461, 17.381759643554688, 18.32556533813477, 18.551685333251953, 18.758142471313477, 17.58821678161621, 18.32556533813477, 18.08961296081543, 19.141563415527344, 19.053083419799805, 19.71177864074707, 20.16402244567871, 20.331151962280273, 18.659828186035156, 19.475831985473633, 18.97443389892578, 17.971641540527344, 17.135974884033203, 16.359302520751953, 16.11351776123047, 16.7525577545166, 14.717474937438965, 14.481520652770996, 14.845281600952148, 14.284897804260254, 14.648653030395508, 15.68094253540039, 16.791879653930664, 18.06995010375977, 17.9421443939209, 18.28623962402344, 18.355058670043945, 18.079784393310547, 20.25250244140625, 19.682287216186523, 21.766523361206055, 22.24825668334961, 22.336742401123047, 22.739824295043945, 23.772113800048828, 22.4547176361084, 22.61202049255371, 22.700502395629883, 22.582523345947266, 22.159778594970703, 22.82830238342285, 22.425222396850582, 22.680837631225582, 21.93365478515625, 21.56006622314453, 21.10782814025879, 22.788982391357425, 23.30021095275879, 25.669557571411133, 26.2004451751709, 27.44902229309082, 29.680734634399418, 30.0543212890625, 29.779043197631836, 30.23128318786621, 27.625986099243164, 29.81639862060547, 30.062732696533203, 31.68854331970215, 31.875755310058594, 31.74766540527344, 30.93968391418457, 27.628944396972656, 25.86518096923828, 25.205007553100582, 25.54987335205078, 28.01322364807129, 28.003374099731445, 27.75703811645508, 28.042783737182617, 27.68806266784668, 28.762083053588867, 28.01322364807129, 30.732765197753903, 34.348960876464844, 34.743099212646484, 35.39342498779297, 36.871437072753906, 36.575828552246094, 33.51142120361328, 34.526329040527344, 33.0384635925293, 31.629423141479492, 31.974288940429688, 33.15669631958008, 34.585445404052734, 33.33406448364258, 34.84163284301758, 36.60539245605469, 38.74357986450195, 38.576072692871094, 36.2999382019043, 38.546512603759766, 38.53666305541992, 37.76809310913086, 35.88609313964844, 35.610198974609375, 40.81279754638672, 39.58111953735352, 40.60586929321289, 40.50734329223633, 39.21654510498047, 42.21197509765625, 47.62149810791016, 49.04039001464844, 46.15333557128906, 49.48379898071289, 54.50902557373047, 48.23241424560547, 46.0843620300293, 48.853172302246094, 45.40448760986328, 42.89186096191406, 42.11344146728515, 41.916378021240234, 40.846405029296875, 42.79898452758789, 45.66868591308594, 45.78702163696289, 45.25450134277344, 44.40640640258789, 45.856056213378906, 45.88563919067383, 47.325416564941406, 45.24463653564453, 45.55034637451172, 41.78324890136719, 43.01593399047851, 43.39067840576172, 44.76142501831055, 42.49327087402344, 45.165748596191406, 40.935157775878906, 39.2291145324707, 39.97858810424805, 36.54678726196289, 34.426551818847656, 30.363611221313477, 31.625883102416992, 33.63763427734375, 34.998531341552734, 36.891937255859375, 39.24884033203125, 40.04762268066406, 37.65127182006836, 33.89402770996094, 35.94523239135742, 38.43033218383789, 40.728065490722656, 39.80108642578125, 39.85039138793945, 39.40662384033203, 40.46179962158203, 40.698482513427734, 42.61161422729492, 46.34912872314453, 45.619380950927734, 44.77128601074219, 47.58182144165039, 47.315555572509766, 48.69617462158203, 48.13405990600586, 50.72764205932617, 53.2916374206543, 50.27400970458984, 49.30758285522461, 47.917110443115234, 47.917110443115234, 46.93095397949219, 52.778839111328125, 51.78282165527344, 51.15168762207031, 53.20288848876953, 53.41983413696289, 57.906829833984375, 60.01719284057617, 59.26771545410156, 61.802127838134766, 64.33653259277344, 59.18882751464844, 57.39402770996094, 52.48299407958984, 54.68729782104492, 54.17305374145508, 53.203914642333984, 54.74663162231445, 54.74663162231445, 56.96181106567383, 59.72090148925781, 60.136253356933594, 63.59746170043945, 63.53813934326172, 67.83003997802734, 61.30317306518555, 63.231563568115234, 63.42934799194336, 64.57649993896484, 50.97884368896485, 51.08762741088867, 46.47925567626953, 52.34355545043945, 49.97014236450195, 42.424686431884766, 39.33925247192383, 41.45553970336914, 41.34675979614258, 36.827396392822266, 43.89817428588867, 34.612213134765625, 29.01492500305176, 27.580989837646484, 28.263341903686523, 25.92949104309082, 31.111433029174805, 30.666419982910156, 31.061988830566406, 34.88910675048828, 34.661659240722656, 39.47769927978515, 39.2898063659668, 41.13908386230469, 39.64581680297851, 41.26764678955078, 37.09440231323242, 39.9523811340332, 36.955955505371094, 38.06354522705078, 36.19448471069336, 35.78902816772461, 38.36022186279297, 29.736835479736328, 29.96428871154785, 29.420379638671875, 25.67237091064453, 27.126087188720703, 28.035892486572266, 31.86301612854004, 31.457555770874023, 33.05960464477539, 31.80367660522461, 31.80367660522461, 30.794981002807617, 34.73088455200195, 33.178279876708984, 33.54417419433594, 34.74289321899414, 35.406646728515625, 39.280174255371094, 37.30873489379883, 36.3378791809082, 33.514461517333984, 34.633914947509766, 34.881587982177734, 36.3378791809082, 36.07039260864258, 37.110599517822266, 38.2498779296875, 37.477149963378906, 38.30931091308594, 40.43926239013672, 34.14849090576172, 34.138580322265625, 34.881587982177734, 34.9410285949707, 34.76270294189453, 34.36643600463867, 33.484737396240234, 33.97016906738281, 34.95093536376953, 35.02027893066406, 37.62575149536133, 33.692779541015625, 29.809343338012695, 30.54244041442871, 30.066917419433594, 31.087308883666992, 33.801753997802734, 35.872257232666016, 35.0797233581543, 32.46434783935547, 31.37460708618164, 29.413076400756836, 29.32391357421875, 26.41133499145508, 27.411914825439453, 27.59023666381836, 26.876951217651367, 28.22426414489746, 28.22426414489746, 29.05643081665039, 27.867626190185547, 26.728349685668945, 27.798274993896484, 29.918317794799805, 29.452701568603516, 30.59197425842285, 28.848392486572266, 29.333820343017575, 28.95736312866211, 26.80760383605957, 28.848392486572266, 28.19454574584961, 30.413654327392575, 32.20676803588867, 30.839643478393555, 27.57042121887207, 26.0546932220459, 27.045366287231445, 29.39691925048828, 30.28111267089844, 30.37052345275879, 29.496267318725582, 27.75768661499023, 27.13179588317871, 27.48944854736328, 29.625417709350582, 32.27799987792969, 30.946739196777344, 29.98307228088379, 27.87690162658691, 27.66827392578125, 27.936511993408203, 29.74463653564453, 29.794309616088867, 32.27799987792969, 33.47016525268555, 34.9206428527832, 34.692142486572266, 32.436954498291016, 24.8964786529541, 25.204458236694336, 25.512434005737305, 26.972843170166016, 26.84368896484375, 25.44289207458496, 26.07871437072754, 27.51925468444824, 27.50931930541992, 26.158191680908203, 27.171537399291992, 27.221210479736328, 27.36029624938965, 28.28422737121582, 28.363706588745117, 29.794309616088867, 31.2646541595459, 31.493154525756836, 28.622011184692383, 26.58538818359375, 24.906414031982425, 26.118453979492188, 21.608078002929688, 22.581684112548828, 20.37616920471191, 20.51525497436523, 21.806774139404297, 19.104520797729492, 20.74375343322754, 17.87261199951172, 17.296398162841797, 18.180587768554688, 17.971960067749023, 19.670799255371097, 20.654342651367188, 19.79995346069336, 20.24701690673828, 19.79995346069336, 19.154193878173828, 20.862972259521484, 20.479293823242188, 18.725353240966797, 17.698894500732422, 15.974847793579102, 15.895122528076172, 15.895122528076172, 16.204055786132812, 11.370742797851562, 8.699963569641113, 9.118517875671388, 8.221614837646484, 12.72606372833252, 9.596866607666016, 10.194802284240724, 10.433977127075195, 10.56352996826172, 9.30786418914795, 9.168346405029297, 8.680032730102539, 9.148415565490724, 10.254596710205078, 11.958712577819824, 12.2975435256958, 12.24771499633789, 11.819193840026855, 12.118162155151367, 12.058368682861328, 13.244274139404297, 13.00510025024414, 12.596510887145996, 13.234308242797852, 13.613001823425291, 14.061452865600586, 17.071062088012695, 18.5360050201416, 18.77517890930176, 18.406450271606445, 18.32672691345215, 17.997861862182617, 17.908170700073242, 16.941509246826172, 16.453195571899414, 15.675878524780272, 17.230512619018555, 16.981372833251953, 17.140823364257812, 16.114364624023438, 16.841854095458984, 18.237035751342773, 19.02431869506836, 18.745283126831055, 19.1140079498291, 20.509193420410156, 21.81468391418457, 21.56554412841797, 21.615373611450195, 19.971052169799805, 21.82465171813965, 21.346302032470703, 21.5356502532959, 21.13702392578125, 21.50575065612793, 23.943044662475582, 24.57286071777344, 25.19268226623535, 25.102706909179688, 25.102706909179688, 24.702821731567383, 26.04243278503418, 26.42232322692871, 24.96274757385254, 26.362340927124023, 26.64225959777832, 27.362051010131836, 27.282073974609375, 26.4923038482666, 27.282073974609375, 27.02215003967285, 27.31206512451172, 27.32206153869629, 27.49201202392578, 26.312355041503903, 25.77251243591309, 25.612560272216797, 25.592565536499023, 26.8721923828125, 27.02215003967285, 27.60198211669922, 24.97274398803711, 24.07300567626953, 24.992738723754883, 24.51287841796875, 23.9830322265625, 24.992738723754883, 25.702531814575195, 25.602561950683594, 27.991867065429688, 29.261499404907227, 29.411455154418945, 27.362051010131836, 27.52200508117676, 26.232378005981445, 25.792505264282227, 25.34263801574707, 27.442028045654297, 27.292070388793945, 27.931884765625, 28.171815872192383, 28.521713256835938, 26.03243827819824, 25.242666244506836, 24.90276527404785, 25.642549514770508, 26.442317962646484, 27.072134017944336, 27.17210578918457, 28.591693878173828, 29.161527633666992, 29.291488647460938, 29.991287231445312, 30.471145629882812, 30.46114921569824, 33.63022994995117, 33.01041030883789, 34.41999816894531, 34.29999923706055, 34.20000076293945, 33.849998474121094, 34.02000045776367, 34.02000045776367, 34.84000015258789, 36.86000061035156, 39.08000183105469, 38.22999954223633, 41.709999084472656, 38.83000183105469, 42.779998779296875, 42.2400016784668, 34.209999084472656, 39.13999938964844, 36.630001068115234, 39.97999954223633, 40.56999969482422, 40.290000915527344, 42.2400016784668, 41.5099983215332, 38.38999938964844, 41.16999816894531, 43.13999938964844, 46.84000015258789, 46.959999084472656, 49.380001068115234, 47.38999938964844, 47.779998779296875, 48.58000183105469, 42.79999923706055, 46.83000183105469, 43.0099983215332, 41.7400016784668, 44.959999084472656, 41.810001373291016, 43.709999084472656, 39.220001220703125, 38.86000061035156, 36.84000015258789, 34.349998474121094, 35.959999084472656, 30.809999465942383, 31.729999542236328, 35.86000061035156, 36.16999816894531, 39.189998626708984, 41.2599983215332, 41.310001373291016, 43.79999923706055, 46.58000183105469, 45.15999984741211, 46.5, 47.9900016784668, 47.790000915527344, 49.650001525878906, 48.790000915527344, 41.709999084472656, 41.18000030517578, 40.4900016784668, 36.0099983215332, 38.58000183105469, 41.720001220703125, 43.2599983215332, 43.70000076293945, 44.209999084472656, 44.209999084472656, 43.81999969482422, 43.66999816894531, 42.029998779296875, 47.2400016784668, 49.220001220703125, 54.0099983215332, 52.290000915527344, 49.650001525878906, 53.95000076293945, 54.650001525878906, 56.06999969482422, 55.380001068115234, 58.08000183105469, 60.75, 57.939998626708984, 63.47999954223633, 63.720001220703125, 61.599998474121094, 60.70000076293945, 64.95999908447266, 70.08999633789062, 70.47000122070312, 61.790000915527344, 65.19999694824219, 61.20000076293945, 53.189998626708984, 53.25, 61.75, 64.02999877929688, 63.34000015258789, 68.05000305175781, 63.099998474121094, 64.58999633789062, 64.3499984741211, 66.29000091552734, 65.2300033569336, 67.11000061035156, 65.86000061035156, 68.52999877929688, 71.86000061035156, 65.33999633789062, 62.77000045776367, 62.7599983215332, 53.41999816894531, 56.619998931884766, 54.79999923706055, 47.88999938964844, 53.31999969482422, 54.59000015258789, 56.09000015258789, 50.279998779296875, 50.720001220703125, 53.689998626708984, 54.95000076293945, 54.02000045776367, 54.849998474121094, 51.13999938964844, 53.029998779296875, 54.959999084472656, 57.040000915527344, 48.970001220703125, 46.61000061035156, 40.619998931884766, 47.90999984741211, 52.2599983215332, 52.75, 54.810001373291016, 56.54999923706055, 67.5, 71.9800033569336, 76.38999938964844, 80.55999755859375, 85.30999755859375, 85.95999908447266, 88.37000274658203, 94.68000030517578, 95.94000244140624, 98.08999633789062, 105.63999938964844, 112.7699966430664, 128.32000732421875, 123.38999938964844, 109.55999755859376, 117.97000122070312, 126.9800033569336, 130.39999389648438, 127.5500030517578, 144.16000366210938, 165.85000610351562, 152.10000610351562, 176.94000244140625, 190.4199981689453, 172.52000427246094, 184.2400054931641, 186.19000244140625, 164.17999267578125, 151.75, 151.88999938964844, 173.1999969482422, 178.38999938964844, 190.55999755859375, 225.7899932861328, 217.97999572753903, 224.6300048828125, 224.33999633789065, 227.02999877929688, 266.32000732421875, 280.5400085449219, 262.70001220703125, 182.5399932861328, 211.44000244140625, 201.67999267578125, 180.6499938964844, 223.9900054931641, 234.67999267578125, 272.5, 226.19000244140625, 233.86000061035156, 279.2900085449219, 300.7699890136719, 231.4199981689453, 229.57000732421875, 252.61000061035156, 215.6000061035156, 236.52000427246097, 266.7099914550781, 233.17999267578125];
+
+        const ctx = document.getElementById('assetChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: '총 자산 가치 ($)',
+                        data: assets,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        yAxisID: 'y-assets',
+                        pointRadius: 0,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'SOXL 종가 ($)',
+                        data: prices,
+                        borderColor: '#8b5cf6',
+                        borderWidth: 1.5,
+                        borderDash: [5, 5],
+                        fill: false,
+                        yAxisID: 'y-price',
+                        pointRadius: 0,
+                        pointHoverRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#f3f4f6',
+                            font: {
+                                family: 'Outfit'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        padding: 12,
+                        backgroundColor: '#151d30',
+                        titleColor: '#f3f4f6',
+                        bodyColor: '#9ca3af',
+                        borderColor: '#223049',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    'y-assets': {
+                        type: 'linear',
+                        position: 'left',
+                        grid: {
+                            color: 'rgba(34, 48, 73, 0.5)'
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '총 자산 ($)',
+                            color: '#9ca3af'
+                        }
+                    },
+                    'y-price': {
+                        type: 'linear',
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '주가 ($)',
+                            color: '#9ca3af'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(34, 48, 73, 0.3)'
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            maxTicksLimit: 12
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+    

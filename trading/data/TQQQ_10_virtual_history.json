@@ -1,0 +1,16 @@
+[
+    {
+        "date": "2026-07-06",
+        "close": 76.83,
+        "exchange_rate": 1532.18,
+        "step": 1,
+        "holdings": 1.0,
+        "average_price": 76.83,
+        "total_assets": 1600.0,
+        "net_assets": 1599.95,
+        "total_assets_krw": 2451488,
+        "net_assets_krw": 2451412,
+        "profit_rate_pct": 0.0,
+        "net_profit_rate_pct": -0.0
+    }
+]

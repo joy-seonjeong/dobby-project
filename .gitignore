@@ -20,9 +20,10 @@ env/
 .mypy_cache/
 
 # Trading local data & Logs
-trading/data/
+trading/data/*.csv
 *.log
 *.sqlite
+
 
 # IDE & Editor files
 .vscode/

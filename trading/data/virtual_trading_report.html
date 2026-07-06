@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOXL 10분할 실시간 가상 투자 대시보드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #151d30;
+            --border-color: #223049;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(to right, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p { color: var(--text-secondary); font-size: 1.05rem; margin-top: 0.25rem; }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .kpi-title { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; }
+        .kpi-value { font-size: 1.8rem; font-weight: 700; }
+        .kpi-value.positive { color: var(--accent-green); }
+        .kpi-value.negative { color: var(--accent-red); }
+
+        .layout { display: grid; grid-template-columns: 2.5fr 1fr; gap: 2rem; }
+        @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+        .panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--accent-blue);
+            padding-left: 0.75rem;
+        }
+
+        .chart-container { position: relative; height: 380px; width: 100%; }
+        .stat-list { list-style: none; }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.85rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .stat-item:last-child { border-bottom: none; }
+        .stat-label { color: var(--text-secondary); }
+        .stat-val { font-weight: 600; }
+
+        .notice-card {
+            background-color: rgba(96, 165, 250, 0.05);
+            border: 1px dashed var(--accent-blue);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SOXL 10분할 가상 실전 테스트 대시보드</h1>
+            <p>규칙: SOXL 10분할 | 매일 현재가와 평단을 비교하여 최대 1주 LOC(CLS) 매수</p>
+        </header>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">총 설정 원금</div>
+                <div class="kpi-value">$4,200.0</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">세전 가상자산</div>
+                <div class="kpi-value" style="color: #60a5fa">$4,200.0 (+0.0%)</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">순자산 (비용 차감 후)</div>
+                <div class="kpi-value positive">
+                    $4,199.85 (-0.0%)
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">SOXL 현재 종가</div>
+                <div class="kpi-value" style="color: var(--accent-purple)">$207.3000030517578</div>
+            </div>
+        </div>
+
+        <div class="layout">
+            <div class="panel">
+                <div class="panel-title">실시간 가상 자산 변화 곡선</div>
+                <div class="chart-container">
+                    <canvas id="virtualChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">현재 가상 투자 통계</div>
+                <ul class="stat-list">
+                    <li class="stat-item">
+                        <span class="stat-label">현재 가상 진행 회차</span>
+                        <span class="stat-val">1 / 10회차</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">가상 보유량</span>
+                        <span class="stat-val">1.0주</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">가상 보유 평단가</span>
+                        <span class="stat-val">$207.30</span>
+                    </li>
+                    <li class="stat-item">
+                        <span class="stat-label">순현금 보유액</span>
+                        <span class="stat-val">$3992.55</span>
+                    </li>
+                </ul>
+                <div class="notice-card">
+                    💡 <b>비용 반영 기준 안내:</b><br>
+                    * 거래 수수료: 매수/매도 시 0.07% 차감<br>
+                    * 매도 제세금: 0.00278% 차감<br>
+                    * Gemini 구독 요금: 매월 첫 영업일 $20.00 고정 차감
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dates = ["2026-07-06"];
+        const rawAssets = [4200.0];
+        const netAssets = [4199.85];
+        const prices = [207.3000030517578];
+
+        const ctx = document.getElementById('virtualChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [
+                    {
+                        label: '세전 가상자산 ($)',
+                        data: rawAssets,
+                        borderColor: '#60a5fa',
+                        borderWidth: 2,
+                        fill: false,
+                        yAxisID: 'y-assets',
+                        pointRadius: 3
+                    },
+                    {
+                        label: '비용 차감 후 순자산 ($)',
+                        data: netAssets,
+                        borderColor: '#34d399',
+                        borderWidth: 2.5,
+                        fill: false,
+                        yAxisID: 'y-assets',
+                        pointRadius: 3
+                    },
+                    {
+                        label: 'SOXL 주가 ($)',
+                        data: prices,
+                        borderColor: 'rgba(139, 92, 246, 0.4)',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        fill: false,
+                        yAxisID: 'y-price',
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    'y-assets': {
+                        type: 'linear',
+                        position: 'left',
+                        ticks: { color: '#9ca3af' },
+                        title: { display: true, text: '자산 가치 ($)', color: '#9ca3af' }
+                    },
+                    'y-price': {
+                        type: 'linear',
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: '#9ca3af' },
+                        title: { display: true, text: '주가 ($)', color: '#9ca3af' }
+                    },
+                    x: { ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+        
