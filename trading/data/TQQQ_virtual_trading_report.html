@@ -109,7 +109,6 @@
             color: var(--text-secondary);
         }
 
-        /* 일지 테이블 스타일 */
         .log-table {
             width: 100%;
             border-collapse: collapse;
@@ -192,7 +191,7 @@
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">순현금 보유액</span>
-                        <span class="stat-val">$1446.65 (약 2,213,108원)</span>
+                        <span class="stat-val">$1523.12 (약 2,330,099원)</span>
                     </li>
                 </ul>
                 <div class="notice-card">
@@ -204,7 +203,6 @@
             </div>
         </div>
 
-        <!-- 💡 실시간 가상 거래 일지 테이블 추가 -->
         <div class="panel" style="margin-top: 1rem;">
             <div class="panel-title">실시간 가상 거래 일지 (Mock Trading Log)</div>
             <table class="log-table">
@@ -229,17 +227,26 @@
                 <td style="font-family: 'Outfit', sans-serif; color: var(--text-secondary);">1529.82 원</td>
             </tr>
             
+            <tr>
+                <td style="font-family: 'Outfit', sans-serif;">2026-07-03</td>
+                <td><span style="background-color: var(--accent-green)33; color: var(--accent-green); padding: 0.25rem 0.6rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 700;">최초 진입 매수</span></td>
+                <td style="font-family: 'Outfit', sans-serif;">1.00주</td>
+                <td style="font-family: 'Outfit', sans-serif;">$76.83</td>
+                <td style="font-family: 'Outfit', sans-serif;">$76.83</td>
+                <td style="font-family: 'Outfit', sans-serif; color: var(--text-secondary);">1532.18 원</td>
+            </tr>
+            
                 </tbody>
             </table>
         </div>
     </div>
 
     <script>
-        const dates = ["2026-07-06"];
-        const rawAssets = [1599.59];
-        const netAssets = [1599.49];
-        const prices = [76.42];
-        const rates = [1529.82];
+        const dates = ["2026-07-03", "2026-07-06"];
+        const rawAssets = [1600.0, 1599.59];
+        const netAssets = [1599.95, 1599.49];
+        const prices = [76.83, 76.42];
+        const rates = [1532.18, 1529.82];
 
         const ctx = document.getElementById('virtualChart').getContext('2d');
         new Chart(ctx, {

@@ -3,6 +3,7 @@ import sys
 import json
 import argparse
 import requests
+import pytz
 from datetime import datetime
 from dotenv import load_dotenv
 from asset_manager import TossAssetManager
@@ -15,7 +16,7 @@ STATUS_FILE_NAME = "infinite_buying_status.json"
 class TossInfiniteBuyingBot:
     """
     토스증권 OpenAPI를 연동하여 라오어의 무한매수법에 따른 자동 매매를 수행하는 봇입니다.
-    (일일 거래 상세 일지 로그 수집 및 대시보드 렌더링 지원)
+    (뉴욕 시간 기준 날짜 동기화 및 2자리 소수점 통일 지원)
     """
     def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.0007, tax_rate: float = 0.0000278):
         self.symbol = symbol.upper()
@@ -187,9 +188,10 @@ class TossInfiniteBuyingBot:
 
     def update_virtual_history(self, current_price: float, is_bought: bool, is_sold: bool, buy_qty: float = 0, sell_qty: float = 0, sell_price: float = 0, action_type: str = "대기"):
         """
-        가상 투자 기록 누적 저장 (일일 거래 상세 로그 필드 추가)
+        가상 투자 기록 누적 저장 (미국 뉴욕 시간 기준 날짜 획득)
         """
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        ny_tz = pytz.timezone("America/New_York")
+        today_str = datetime.now(ny_tz).strftime("%Y-%m-%d")
         exchange_rate = self.get_exchange_rate()
         
         history_list = []
@@ -205,8 +207,9 @@ class TossInfiniteBuyingBot:
         if history_list:
             last_date_str = history_list[-1]["date"]
             last_date_obj = datetime.strptime(last_date_str, "%Y-%m-%d")
-            today_obj = datetime.now()
-            if today_obj.month != last_date_obj.month:
+            # 뉴욕 기준 월 비교
+            today_ny_obj = datetime.now(ny_tz)
+            if today_ny_obj.month != last_date_obj.month:
                 print(f"💸 [비용 청구] Gemini 월 구독료 ${self.gemini_monthly_fee:.2f}가 가상 차감되었습니다.")
                 self.status["net_cash"] -= self.gemini_monthly_fee
                 
@@ -239,7 +242,6 @@ class TossInfiniteBuyingBot:
         total_assets_krw = total_assets * exchange_rate
         net_assets_krw = net_total_assets * exchange_rate
         
-        # 오늘 기입할 세부 거래 로그 가공
         action_qty = buy_qty if is_bought else (sell_qty if is_sold else 0.0)
         action_price = current_price if is_bought else (sell_price if is_sold else 0.0)
         action_amount = (buy_qty * current_price) if is_bought else ((sell_qty * sell_price) if is_sold else 0.0)
@@ -258,7 +260,6 @@ class TossInfiniteBuyingBot:
             "profit_rate_pct": round(((total_assets - self.status["capital"]) / self.status["capital"]) * 100, 2),
             "net_profit_rate_pct": round(((net_total_assets - self.status["capital"]) / self.status["capital"]) * 100, 2),
             
-            # 💡 일일 가상 거래 로그 필드 추가
             "action_type": action_type,
             "action_qty": round(action_qty, 2),
             "action_price": round(action_price, 2),
@@ -276,9 +277,6 @@ class TossInfiniteBuyingBot:
         self.generate_virtual_dashboard(history_list)
 
     def generate_virtual_dashboard(self, history):
-        """
-        가상 모의투자 대시보드 HTML 파일 생성 (일일 거래 일지 테이블 추가)
-        """
         today_rec = history[-1]
         raw_pct = today_rec["profit_rate_pct"]
         net_pct = today_rec["net_profit_rate_pct"]
@@ -289,7 +287,6 @@ class TossInfiniteBuyingBot:
         prices_json = json.dumps([h["close"] for h in history])
         rates_json = json.dumps([h.get("exchange_rate", 1380.0) for h in history])
         
-        # 최신 거래 내역이 맨 위로 오도록 역사 기록 역순 가공
         sorted_history = list(reversed(history))
         log_rows_html = ""
         for h in sorted_history:
@@ -428,7 +425,6 @@ class TossInfiniteBuyingBot:
             color: var(--text-secondary);
         }}
 
-        /* 일지 테이블 스타일 */
         .log-table {{
             width: 100%;
             border-collapse: collapse;
@@ -523,7 +519,6 @@ class TossInfiniteBuyingBot:
             </div>
         </div>
 
-        <!-- 💡 실시간 가상 거래 일지 테이블 추가 -->
         <div class="panel" style="margin-top: 1rem;">
             <div class="panel-title">실시간 가상 거래 일지 (Mock Trading Log)</div>
             <table class="log-table">
