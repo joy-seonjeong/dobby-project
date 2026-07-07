@@ -19,20 +19,20 @@
     },
     {
         "date": "2026-07-07",
-        "close": 76.42,
-        "exchange_rate": 1529.82,
-        "step": 2,
-        "holdings": 2.0,
-        "average_price": 76.62,
-        "total_assets": 1599.59,
-        "net_assets": 1599.49,
-        "total_assets_krw": 2447085,
-        "net_assets_krw": 2446926,
-        "profit_rate_pct": -0.03,
-        "net_profit_rate_pct": -0.03,
+        "close": 72.23,
+        "exchange_rate": 1513.83,
+        "step": 3,
+        "holdings": 3.0,
+        "average_price": 75.16,
+        "total_assets": 1591.21,
+        "net_assets": 1595.3,
+        "total_assets_krw": 2408821,
+        "net_assets_krw": 2415012,
+        "profit_rate_pct": -0.55,
+        "net_profit_rate_pct": -0.29,
         "action_type": "지정가 LOC 매수",
         "action_qty": 1.0,
-        "action_price": 76.42,
-        "action_amount": 76.42
+        "action_price": 72.23,
+        "action_amount": 72.23
     }
 ]
