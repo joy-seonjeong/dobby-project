@@ -3,29 +3,30 @@
         "capital": 1600.0,
         "divisions": 10,
         "one_time_limit": 160.0,
-        "step": 3,
-        "holdings": 3.0,
-        "average_price": 73.76,
-        "total_purchase_amount": 221.28,
+        "step": 4,
+        "holdings": 4.0,
+        "average_price": 73.50000030517577,
+        "total_purchase_amount": 294.0000012207031,
         "cash": 1378.72,
         "net_cash": 1378.49,
         "net_holdings": 3.0,
         "net_average_price": 73.84,
         "net_total_purchase": 221.51,
-        "last_trade_date": "2026-07-07"
+        "last_trade_date": "2026-07-08"
     },
     "SOXL": {
         "capital": 3400.0,
         "divisions": 10,
         "one_time_limit": 340.0,
-        "step": 1,
-        "holdings": 1.0,
-        "average_price": 165.28,
-        "total_purchase_amount": 165.28,
-        "net_cash": 3234.60,
+        "step": 2,
+        "holdings": 2.0,
+        "average_price": 170.05000366210936,
+        "total_purchase_amount": 340.1000073242187,
+        "net_cash": 3234.6,
         "net_holdings": 1.0,
-        "net_average_price": 165.40,
-        "net_total_purchase": 165.40,
-        "last_trade_date": "2026-07-07"
+        "net_average_price": 165.4,
+        "net_total_purchase": 165.4,
+        "last_trade_date": "2026-07-08",
+        "cash": 3234.6
     }
 }

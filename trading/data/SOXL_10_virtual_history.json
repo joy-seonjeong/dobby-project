@@ -16,5 +16,23 @@
         "action_qty": 1.0,
         "action_price": 165.28,
         "action_amount": 165.28
+    },
+    {
+        "date": "2026-07-08",
+        "close": 174.82,
+        "exchange_rate": 1504.97,
+        "step": 2,
+        "holdings": 2.0,
+        "average_price": 170.05,
+        "total_assets": 3409.42,
+        "net_assets": 3409.25,
+        "total_assets_krw": 5131075,
+        "net_assets_krw": 5130812,
+        "profit_rate_pct": 0.28,
+        "net_profit_rate_pct": 0.27,
+        "action_type": "무체결 방지 LOC 매수",
+        "action_qty": 1.0,
+        "action_price": 174.82,
+        "action_amount": 174.82
     }
 ]
