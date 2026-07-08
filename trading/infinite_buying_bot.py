@@ -4,6 +4,7 @@ import json
 import argparse
 import requests
 import pytz
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from asset_manager import TossAssetManager
@@ -16,7 +17,7 @@ STATUS_FILE_NAME = "infinite_buying_status.json"
 class TossInfiniteBuyingBot:
     """
     토스증권 OpenAPI를 연동하여 라오어의 무한매수법에 따른 자동 매매를 수행하는 봇입니다.
-    (뉴욕 시간 기준 날짜 동기화 및 2자리 소수점 통일 지원)
+    (API 재시도 로직, 텔레그램 알림 발송 및 극단적 예외 상황 방어망 구축 완료)
     """
     def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.0007, tax_rate: float = 0.0000278):
         self.symbol = symbol.upper()
@@ -27,11 +28,15 @@ class TossInfiniteBuyingBot:
         self.transaction_fee_rate = transaction_fee_rate
         self.tax_rate = tax_rate
         
+        # 텔레그램 설정 로드
+        self.telegram_token = os.getenv("TELEGRAM_TOKEN")
+        self.telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        
         try:
             self.asset_manager = TossAssetManager()
         except Exception as e:
             if not self.is_dry_run:
-                print(f"⚠️ TossAssetManager 초기화 실패: {e}")
+                self.send_telegram_notification(f"⚠️ [경고] TossAssetManager 초기화 실패: {e}")
             self.asset_manager = None
             
         self.current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +48,27 @@ class TossInfiniteBuyingBot:
         os.makedirs(os.path.join(self.current_dir, "data"), exist_ok=True)
         self.status = self.load_status()
         
+    def send_telegram_notification(self, message: str):
+        """
+        텔레그램 메신저로 봇의 구동 로그 및 긴급 상황 알림을 즉시 발송합니다.
+        """
+        print(f"📢 [Telegram 알림 전송 시도] {message}")
+        if not self.telegram_token or not self.telegram_chat_id:
+            print("💡 .env에 TELEGRAM_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되어 있지 않아 텔레그램 알림을 건너뜁니다.")
+            return
+            
+        url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
+        payload = {
+            "chat_id": self.telegram_chat_id,
+            "text": f"🤖 [무한매수법 봇 - {self.symbol}]\n{message}"
+        }
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            if response.status_code != 200:
+                print(f"❌ 텔레그램 알림 발송 실패 (상태코드 {response.status_code}): {response.text}")
+        except Exception as e:
+            print(f"❌ 텔레그램 알림 API 오류: {e}")
+            
     def load_status(self):
         if os.path.exists(self.status_file_path):
             with open(self.status_file_path, "r", encoding="utf-8") as f:
@@ -93,7 +119,20 @@ class TossInfiniteBuyingBot:
             return
             
         try:
-            holdings_info = self.asset_manager.get_holdings(symbol=self.symbol)
+            # 3회 재시도를 적용한 계좌 조회
+            holdings_info = None
+            for attempt in range(1, 4):
+                try:
+                    holdings_info = self.asset_manager.get_holdings(symbol=self.symbol)
+                    if holdings_info:
+                        break
+                except Exception as e:
+                    print(f"⚠️ [재시도 {attempt}/3] 계좌 잔고 조회 실패: {e}")
+                    if attempt < 3:
+                        time.sleep(2.0)
+                    else:
+                        raise e
+            
             items = holdings_info.get("items", [])
             target_item = None
             for item in items:
@@ -103,7 +142,9 @@ class TossInfiniteBuyingBot:
             
             if not target_item:
                 if self.status["holdings"] > 0:
-                    print(f"🎉 [실전 익절 성공!] 보유량이 0입니다. 익절 체결 판정 및 사이클 리셋.")
+                    msg = f"🎉 [실전 익절 성공!] 보유량이 0입니다. 익절 지정가 매도 완료 판정 및 사이클을 자동 리셋합니다."
+                    print(msg)
+                    self.send_telegram_notification(msg)
                     self.reset_cycle()
                 else:
                     self.status["step"] = 0
@@ -128,7 +169,9 @@ class TossInfiniteBuyingBot:
                 self.status["total_purchase_amount"] = broker_qty * broker_avg_price
             self.save_status()
         except Exception as e:
-            print(f"❌ 계좌 동기화 실패: {e}. 로컬 데이터를 사용합니다.")
+            err_msg = f"❌ 계좌 동기화 실패: {e}. 로컬 데이터를 사용해 가상 구동을 유지합니다."
+            print(err_msg)
+            self.send_telegram_notification(err_msg)
 
     def reset_cycle(self):
         print(f"🔄 [리셋] {self.symbol} 무한매수법 사이클 리셋")
@@ -142,30 +185,42 @@ class TossInfiniteBuyingBot:
         self.save_status()
 
     def get_current_price(self):
-        try:
-            import yfinance as yf
-            ticker = yf.Ticker(self.symbol)
-            price = ticker.fast_info.last_price
-            if price:
-                return float(price)
-        except Exception:
-            pass
+        # 현재가 조회 3회 재시도 적용
+        for attempt in range(1, 4):
+            try:
+                import yfinance as yf
+                ticker = yf.Ticker(self.symbol)
+                price = ticker.fast_info.last_price
+                if price:
+                    return float(price)
+            except Exception as e:
+                print(f"⚠️ [재시도 {attempt}/3] yfinance 현재가 조회 실패: {e}")
+                if attempt < 3:
+                    time.sleep(2.0)
         return 76.76
 
     def get_exchange_rate(self):
-        try:
-            import yfinance as yf
-            rate = yf.Ticker("USDKRW=X").fast_info.last_price
-            if rate:
-                return float(rate)
-        except Exception:
-            pass
+        for attempt in range(1, 4):
+            try:
+                import yfinance as yf
+                rate = yf.Ticker("USDKRW=X").fast_info.last_price
+                if rate:
+                    return float(rate)
+            except Exception as e:
+                print(f"⚠️ [재시도 {attempt}/3] yfinance 환율 조회 실패: {e}")
+                if attempt < 3:
+                    time.sleep(2.0)
         return 1380.0
 
     def place_toss_order(self, quantity: float, price: float, side: str, order_type: str = "LIMIT", time_in_force: str = "DAY"):
+        """
+        토스증권 API로 주문을 전송합니다. 
+        (네트워크 순단 장애나 일시적 지연에 대응하기 위해 3회 자동 재시도 및 백오프 적용)
+        """
         if self.is_dry_run:
             print(f"🛡️ [DRY RUN 가상 주문] {side} {self.symbol} {quantity:.2f}주 @ ${price:.2f} (TIF: {time_in_force})")
             return {"status": "success", "orderId": "mock_order_id"}
+            
         url = f"{self.asset_manager.base_url}/api/v1/orders"
         headers = self.asset_manager._get_headers()
         tif_param = "CLS" if time_in_force.upper() == "LOC" else time_in_force.upper()
@@ -177,19 +232,30 @@ class TossInfiniteBuyingBot:
             "quantity": str(quantity),
             "price": str(round(price, 2))
         }
-        try:
-            response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                print(f"✅ [주문 성공] {side} {self.symbol} 주문 접수 완료! (수량: {quantity:.2f}주, 가격: ${price:.2f})")
-                return response.json()
-        except Exception:
-            pass
+        
+        # 3회 자동 재시도 루프
+        for attempt in range(1, 4):
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=15)
+                if response.status_code == 200:
+                    msg = f"✅ [주문 성공] {side} {self.symbol} {quantity:.2f}주 @ ${price:.2f} 주문 접수 완료!"
+                    print(msg)
+                    self.send_telegram_notification(msg)
+                    return response.json()
+                else:
+                    print(f"⚠️ [주문 실패 시도 {attempt}/3] 상태코드 {response.status_code}: {response.text}")
+            except Exception as e:
+                print(f"⚠️ [주문 API 에러 시도 {attempt}/3]: {e}")
+                
+            if attempt < 3:
+                time.sleep(3.0 * attempt) # 백오프 대기
+                
+        err_msg = f"❌ [주문 최종 실패] {side} {self.symbol} {quantity:.2f}주 주문이 3회 재시도에도 불구하고 실패했습니다."
+        print(err_msg)
+        self.send_telegram_notification(err_msg)
         return None
 
     def update_virtual_history(self, current_price: float, is_bought: bool, is_sold: bool, buy_qty: float = 0, sell_qty: float = 0, sell_price: float = 0, action_type: str = "대기"):
-        """
-        가상 투자 기록 누적 저장 (미국 뉴욕 시간 기준 날짜 획득)
-        """
         ny_tz = pytz.timezone("America/New_York")
         today_str = datetime.now(ny_tz).strftime("%Y-%m-%d")
         exchange_rate = self.get_exchange_rate()
@@ -207,7 +273,6 @@ class TossInfiniteBuyingBot:
         if history_list:
             last_date_str = history_list[-1]["date"]
             last_date_obj = datetime.strptime(last_date_str, "%Y-%m-%d")
-            # 뉴욕 기준 월 비교
             today_ny_obj = datetime.now(ny_tz)
             if today_ny_obj.month != last_date_obj.month:
                 print(f"💸 [비용 청구] Gemini 월 구독료 ${self.gemini_monthly_fee:.2f}가 가상 차감되었습니다.")
@@ -640,7 +705,8 @@ class TossInfiniteBuyingBot:
         """
         매일 실행되는 무한매수법 거래 로직을 수행합니다.
         """
-        print(f"\n🚀 === [무한매수법 실행] 종목: {self.symbol} | 모드: {'DRY-RUN(가상)' if self.is_dry_run else 'REAL(실전)'} ===")
+        ny_tz = pytz.timezone("America/New_York")
+        print(f"\n🚀 === [무한매수법 실행] 종목: {self.symbol} | 모드: {'DRY-RUN(가상)' if self.is_dry_run else 'REAL(실전)'} | 뉴욕시간: {datetime.now(ny_tz).strftime('%Y-%m-%d %H:%M:%S')} ===")
         
         self.sync_state_with_broker()
         current_price = self.get_current_price()
@@ -667,7 +733,9 @@ class TossInfiniteBuyingBot:
             )
             
             if self.is_dry_run and current_price >= target_sell_price:
-                print("🚨 [가상 익절 조건 충족] 가상 전량 익절 매도 정산을 실행합니다!")
+                msg = f"🚨 [가상 익절 조건 충족] 가상 전량 익절 매도 정산을 실행합니다! 매도가: ${target_sell_price:.2f}"
+                print(msg)
+                self.send_telegram_notification(msg)
                 is_sold = True
                 sell_qty = self.status["holdings"]
                 sell_price = target_sell_price
@@ -695,7 +763,7 @@ class TossInfiniteBuyingBot:
                 self.status["holdings"] = 1.0
                 self.status["average_price"] = current_price
                 self.status["total_purchase_amount"] = current_price
-                self.status["last_trade_date"] = datetime.now().strftime("%Y-%m-%d")
+                self.status["last_trade_date"] = datetime.now(ny_tz).strftime("%Y-%m-%d")
                 self.save_status()
             else:
                 if step < self.status["divisions"]:
@@ -733,7 +801,7 @@ class TossInfiniteBuyingBot:
                         self.status["holdings"] += 1.0
                         self.status["total_purchase_amount"] += current_price
                         self.status["average_price"] = self.status["total_purchase_amount"] / self.status["holdings"]
-                        self.status["last_trade_date"] = datetime.now().strftime("%Y-%m-%d")
+                        self.status["last_trade_date"] = datetime.now(ny_tz).strftime("%Y-%m-%d")
                         self.save_status()
                 else:
                     action_type = "원금 소진 대기"
