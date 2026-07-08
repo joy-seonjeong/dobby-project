@@ -19,7 +19,7 @@ class TossInfiniteBuyingBot:
     토스증권 OpenAPI를 연동하여 라오어의 무한매수법에 따른 자동 매매를 수행하는 봇입니다.
     (다중 종목 통합 탭 지원 단일 대시보드 리포터 연동)
     """
-    def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.001, tax_rate: float = 0.0000278):
+    def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.001, tax_rate: float = 0.0000206):
         self.symbol = symbol.upper()
         self.is_dry_run = is_dry_run
         
