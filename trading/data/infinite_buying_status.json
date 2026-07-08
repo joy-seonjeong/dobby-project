@@ -14,17 +14,17 @@
         "last_trade_date": "2026-07-07"
     },
     "SOXL": {
-        "capital": 600.0,
+        "capital": 3400.0,
         "divisions": 10,
-        "one_time_limit": 60.0,
+        "one_time_limit": 340.0,
         "step": 1,
         "holdings": 1.0,
-        "average_price": 29.47,
-        "total_purchase_amount": 29.47,
-        "net_cash": 570.51,
+        "average_price": 165.28,
+        "total_purchase_amount": 165.28,
+        "net_cash": 3234.60,
         "net_holdings": 1.0,
-        "net_average_price": 29.49,
-        "net_total_purchase": 29.49,
+        "net_average_price": 165.40,
+        "net_total_purchase": 165.40,
         "last_trade_date": "2026-07-07"
     }
 }
