@@ -72,21 +72,25 @@ class TossInfiniteBuyingBot:
                 try:
                     all_status = json.load(f)
                     if self.symbol in all_status:
-                        return all_status[self.symbol]
+                        status = all_status[self.symbol]
+                        if "cash" not in status:
+                            status["cash"] = status.get("net_cash", status["capital"])
+                        return status
                 except Exception as e:
                     print(f"⚠️ 상태 파일 로드 오류: {e}")
                     
         default_status = {
-            "capital": 1600.0,
+            "capital": 1600.0 if self.symbol == "TQQQ" else (3400.0 if self.symbol == "SOXL" else 10000.0),
             "divisions": 10,
-            "one_time_limit": 160.0,
+            "one_time_limit": 160.0 if self.symbol == "TQQQ" else (340.0 if self.symbol == "SOXL" else 1000.0),
             "step": 0,
             "holdings": 0.0,
             "average_price": 0.0,
             "total_purchase_amount": 0.0,
             
-            # 순자산 계정
-            "net_cash": 1600.0,
+            # 현금 및 순자산 계정
+            "cash": 1600.0 if self.symbol == "TQQQ" else (3400.0 if self.symbol == "SOXL" else 10000.0),
+            "net_cash": 1600.0 if self.symbol == "TQQQ" else (3400.0 if self.symbol == "SOXL" else 10000.0),
             "net_holdings": 0.0,
             "net_average_price": 0.0,
             "net_total_purchase": 0.0,
@@ -271,6 +275,7 @@ class TossInfiniteBuyingBot:
         if is_bought and buy_qty > 0:
             buy_amt = buy_qty * current_price
             fee = buy_amt * self.transaction_fee_rate
+            self.status["cash"] -= buy_amt
             self.status["net_cash"] -= (buy_amt + fee)
             self.status["net_holdings"] += buy_qty
             self.status["net_total_purchase"] += (buy_amt + fee)
@@ -282,6 +287,7 @@ class TossInfiniteBuyingBot:
             fee = gross_revenue * self.transaction_fee_rate
             tax = gross_revenue * self.tax_rate
             net_revenue = gross_revenue - fee - tax
+            self.status["cash"] += gross_revenue
             self.status["net_cash"] += net_revenue
             print(f"🎉 [가상 익절 정산] {sell_qty:.2f}주 매도 완료 (수수료/세금 ${fee+tax:.2f} 차감 반영)")
             self.status["net_holdings"] = 0.0
@@ -289,7 +295,7 @@ class TossInfiniteBuyingBot:
             self.status["net_average_price"] = 0.0
             
         portfolio_value = self.status["holdings"] * current_price
-        total_assets = (self.status["capital"] - self.status["total_purchase_amount"]) + portfolio_value
+        total_assets = self.status["cash"] + portfolio_value
         
         net_portfolio_value = self.status["net_holdings"] * current_price
         net_total_assets = self.status["net_cash"] + net_portfolio_value
