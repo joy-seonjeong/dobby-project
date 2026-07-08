@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOXL 10분할 실시간 가상 투자 대시보드</title>
+    <title>무한매수법 실시간 모의투자 대시보드</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -29,20 +29,57 @@
         }
 
         .container { max-width: 1200px; margin: 0 auto; }
+        
         header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 1.5rem;
             margin-bottom: 2rem;
         }
+        @media (max-width: 768px) {
+            header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+        }
 
         header h1 {
-            font-size: 2.2rem;
+            font-size: 2rem;
             background: linear-gradient(to right, #60a5fa, #34d399);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        header p { color: var(--text-secondary); font-size: 1.05rem; margin-top: 0.25rem; }
+        header p { color: var(--text-secondary); font-size: 1rem; margin-top: 0.25rem; }
+
+        /* 탭 스타일 */
+        .tabs {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .tab-btn {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.6rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
         
         .kpi-grid {
             display: grid;
@@ -56,12 +93,16 @@
             border: 1px solid var(--border-color);
             border-radius: 1rem;
             padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
 
         .kpi-title { font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; }
         .kpi-value { font-size: 1.8rem; font-weight: 700; }
         .kpi-value.positive { color: var(--accent-green); }
         .kpi-value.negative { color: var(--accent-red); }
+        .kpi-sub { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.35rem; font-weight: 500; }
 
         .layout { display: grid; grid-template-columns: 2.5fr 1fr; gap: 2rem; }
         @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
@@ -104,34 +145,64 @@
             font-size: 0.9rem;
             color: var(--text-secondary);
         }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            margin-top: 1rem;
+        }
+
+        .log-table th, .log-table td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .log-table th {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .log-table td {
+            font-size: 0.95rem;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>SOXL 10분할 가상 실전 테스트 대시보드</h1>
-            <p>규칙: SOXL 10분할 | 매일 현재가와 평단을 비교하여 최대 1주 LOC(CLS) 매수</p>
+            <div>
+                <h1>무한매수법 실시간 모의투자 대시보드</h1>
+                <p>하루 최대 1주 매수 룰 적용 (달러/원화 실시간 병기 및 거래 일지 제공)</p>
+            </div>
+            
+            <!-- 탭 영역 -->
+            <div class="tabs" id="tabContainer"></div>
         </header>
 
         <!-- KPI Grid -->
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-title">총 설정 원금</div>
-                <div class="kpi-value">$4,200.0</div>
+                <div class="kpi-value" id="kpiCapital">$0.00</div>
+                <div class="kpi-sub" id="kpiCapitalKrw">≈ 0 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">세전 가상자산</div>
-                <div class="kpi-value" style="color: #60a5fa">$4,200.0 (+0.0%)</div>
+                <div class="kpi-value" id="kpiRawAssets" style="color: #60a5fa">$0.00 (+0%)</div>
+                <div class="kpi-sub" id="kpiRawAssetsKrw">≈ 0 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">순자산 (비용 차감 후)</div>
-                <div class="kpi-value positive">
-                    $4,199.85 (-0.0%)
-                </div>
+                <div class="kpi-value" id="kpiNetAssets">$0.00 (+0%)</div>
+                <div class="kpi-sub" id="kpiNetAssetsKrw" style="color: var(--accent-green)">≈ 0 원</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">SOXL 현재 종가</div>
-                <div class="kpi-value" style="color: var(--accent-purple)">$207.3000030517578</div>
+                <div class="kpi-title">현재가 / 환율</div>
+                <div class="kpi-value" id="kpiClose" style="color: var(--accent-purple)">$0.00</div>
+                <div class="kpi-sub" id="kpiRate">0.00 원/$</div>
             </div>
         </div>
 
@@ -148,19 +219,19 @@
                 <ul class="stat-list">
                     <li class="stat-item">
                         <span class="stat-label">현재 가상 진행 회차</span>
-                        <span class="stat-val">1 / 10회차</span>
+                        <span class="stat-val" id="statStep">0 / 10회차</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">가상 보유량</span>
-                        <span class="stat-val">1.0주</span>
+                        <span class="stat-val" id="statHoldings">0.00주</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">가상 보유 평단가</span>
-                        <span class="stat-val">$207.30</span>
+                        <span class="stat-val" id="statAveragePrice">$0.00 (약 0원)</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">순현금 보유액</span>
-                        <span class="stat-val">$3992.55</span>
+                        <span class="stat-val" id="statNetCash">$0.00 (약 0원)</span>
                     </li>
                 </ul>
                 <div class="notice-card">
@@ -171,72 +242,207 @@
                 </div>
             </div>
         </div>
+
+        <div class="panel" style="margin-top: 1rem;">
+            <div class="panel-title">실시간 가상 거래 일지 (Mock Trading Log)</div>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>거래 구분</th>
+                        <th>체결 수량</th>
+                        <th>체결 단가</th>
+                        <th>총 거래금액</th>
+                        <th>적용 환율</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody"></tbody>
+            </table>
+        </div>
     </div>
 
     <script>
-        const dates = ["2026-07-06"];
-        const rawAssets = [4200.0];
-        const netAssets = [4199.85];
-        const prices = [207.3000030517578];
+        const dashboardData = {"TQQQ": {"status": {"capital": 1600.0, "divisions": 10, "one_time_limit": 160.0, "step": 2, "holdings": 2.0, "average_price": 76.62, "total_purchase_amount": 153.25, "net_cash": 1446.65, "net_holdings": 2.0, "net_average_price": 76.68, "net_total_purchase": 153.35, "last_trade_date": "2026-07-07"}, "history": [{"date": "2026-07-06", "close": 76.83, "exchange_rate": 1532.18, "step": 1, "holdings": 1.0, "average_price": 76.83, "total_assets": 1600.0, "net_assets": 1599.95, "total_assets_krw": 2451488, "net_assets_krw": 2451412, "profit_rate_pct": 0.0, "net_profit_rate_pct": -0.0, "action_type": "최초 진입 매수", "action_qty": 1.0, "action_price": 76.83, "action_amount": 76.83}, {"date": "2026-07-07", "close": 72.23, "exchange_rate": 1513.83, "step": 3, "holdings": 3.0, "average_price": 75.16, "total_assets": 1591.21, "net_assets": 1595.3, "total_assets_krw": 2408821, "net_assets_krw": 2415012, "profit_rate_pct": -0.55, "net_profit_rate_pct": -0.29, "action_type": "지정가 LOC 매수", "action_qty": 1.0, "action_price": 72.23, "action_amount": 72.23}]}, "SOXL": {"status": {"capital": 600.0, "divisions": 10, "one_time_limit": 60.0, "step": 1, "holdings": 1.0, "average_price": 29.47, "total_purchase_amount": 29.47, "net_cash": 570.51, "net_holdings": 1.0, "net_average_price": 29.49, "net_total_purchase": 29.49, "last_trade_date": "2026-07-07"}, "history": [{"date": "2026-07-07", "close": 29.47, "exchange_rate": 1529.82, "step": 1, "holdings": 1.0, "average_price": 29.47, "total_assets": 600.0, "net_assets": 599.98, "total_assets_krw": 917892, "net_assets_krw": 917861, "profit_rate_pct": 0.0, "net_profit_rate_pct": -0.0, "action_type": "최초 진입 매수", "action_qty": 1.0, "action_price": 29.47, "action_amount": 29.47}]}};
+        let currentChart = null;
 
-        const ctx = document.getElementById('virtualChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: dates,
-                datasets: [
-                    {
-                        label: '세전 가상자산 ($)',
-                        data: rawAssets,
-                        borderColor: '#60a5fa',
-                        borderWidth: 2,
-                        fill: false,
-                        yAxisID: 'y-assets',
-                        pointRadius: 3
-                    },
-                    {
-                        label: '비용 차감 후 순자산 ($)',
-                        data: netAssets,
-                        borderColor: '#34d399',
-                        borderWidth: 2.5,
-                        fill: false,
-                        yAxisID: 'y-assets',
-                        pointRadius: 3
-                    },
-                    {
-                        label: 'SOXL 주가 ($)',
-                        data: prices,
-                        borderColor: 'rgba(139, 92, 246, 0.4)',
-                        borderWidth: 1.5,
-                        borderDash: [4, 4],
-                        fill: false,
-                        yAxisID: 'y-price',
-                        pointRadius: 0
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    'y-assets': {
-                        type: 'linear',
-                        position: 'left',
-                        ticks: { color: '#9ca3af' },
-                        title: { display: true, text: '자산 가치 ($)', color: '#9ca3af' }
-                    },
-                    'y-price': {
-                        type: 'linear',
-                        position: 'right',
-                        grid: { drawOnChartArea: false },
-                        ticks: { color: '#9ca3af' },
-                        title: { display: true, text: '주가 ($)', color: '#9ca3af' }
-                    },
-                    x: { ticks: { color: '#9ca3af' } }
-                }
-            }
+        // 동적으로 탭 생성
+        const tabContainer = document.getElementById('tabContainer');
+        Object.keys(dashboardData).forEach((symbol, index) => {
+            const btn = document.createElement('button');
+            btn.className = `tab-btn ${symbol === 'TQQQ' ? 'active' : ''}`;
+            btn.innerText = symbol;
+            btn.onclick = () => switchTab(symbol, btn);
+            tabContainer.appendChild(btn);
         });
+
+        // 초기 화면 렌더링
+        switchTab('TQQQ');
+
+        function switchTab(symbol, targetBtn = null) {
+            // 탭 버튼 active 클래스 제어
+            if (targetBtn) {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                targetBtn.classList.add('active');
+            }
+
+            const data = dashboardData[symbol];
+            const status = data.status;
+            const history = data.history;
+            const latest = history[history.length - 1];
+
+            const exRate = latest.exchange_rate;
+
+            // KPI 값 갱신
+            document.getElementById('kpiCapital').innerText = `$${status.capital.toFixed(2)}`;
+            document.getElementById('kpiCapitalKrw').innerText = `≈ ${Math.round(status.capital * exRate).toLocaleString()} 원`;
+
+            const rawPct = latest.profit_rate_pct;
+            document.getElementById('kpiRawAssets').innerText = `$${latest.total_assets.toFixed(2)} (${rawPct >= 0 ? '+' : ''}${rawPct}%)`;
+            document.getElementById('kpiRawAssetsKrw').innerText = `≈ ${latest.total_assets_krw.toLocaleString()} 원`;
+
+            const netPct = latest.net_profit_rate_pct;
+            const netKpi = document.getElementById('kpiNetAssets');
+            netKpi.innerText = `$${latest.net_assets.toFixed(2)} (${netPct >= 0 ? '+' : ''}${netPct}%)`;
+            if (netPct >= 0) {
+                netKpi.className = 'kpi-value positive';
+            } else {
+                netKpi.className = 'kpi-value negative';
+            }
+            document.getElementById('kpiNetAssetsKrw').innerText = `≈ ${latest.net_assets_krw.toLocaleString()} 원`;
+
+            document.getElementById('kpiClose').innerText = `$${latest.close.toFixed(2)}`;
+            document.getElementById('kpiRate').innerText = `${exRate.toFixed(2)} 원/$`;
+
+            // 통계 표 갱신
+            document.getElementById('statStep').innerText = `${status.step} / 10회차`;
+            document.getElementById('statHoldings').innerText = `${status.holdings.toFixed(2)}주`;
+            document.getElementById('statAveragePrice').innerText = `$${status.average_price.toFixed(2)} (약 ${Math.round(status.average_price * exRate).toLocaleString()}원)`;
+            document.getElementById('statNetCash').innerText = `$${status.net_cash.toFixed(2)} (약 ${Math.round(status.net_cash * exRate).toLocaleString()}원)`;
+
+            // 거래 일지 갱신
+            const tbody = document.getElementById('logTableBody');
+            tbody.innerHTML = '';
+            
+            // 최신순 정렬
+            const reversedHist = [...history].reverse();
+            reversedHist.forEach(h => {
+                const actType = h.action_type || '대기';
+                let badgeColor = 'var(--accent-blue)';
+                if (actType.includes('매수')) badgeColor = 'var(--accent-green)';
+                else if (actType.includes('매도') || actType.includes('익절')) badgeColor = 'var(--accent-red)';
+                else if (actType.includes('대기')) badgeColor = 'var(--text-secondary)';
+
+                const qtyStr = h.action_qty > 0 ? `${h.action_qty.toFixed(2)}주` : '-';
+                const priceStr = h.action_price > 0 ? `$${h.action_price.toFixed(2)}` : '-';
+                const amtStr = h.action_amount > 0 ? `$${h.action_amount.toFixed(2)}` : '-';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family: 'Outfit', sans-serif;">${h.date}</td>
+                    <td><span style="background-color: ${badgeColor}33; color: ${badgeColor}; padding: 0.25rem 0.6rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 700;">${actType}</span></td>
+                    <td style="font-family: 'Outfit', sans-serif;">${qtyStr}</td>
+                    <td style="font-family: 'Outfit', sans-serif;">${priceStr}</td>
+                    <td style="font-family: 'Outfit', sans-serif;">${amtStr}</td>
+                    <td style="font-family: 'Outfit', sans-serif; color: var(--text-secondary);">${h.exchange_rate.toFixed(2)} 원</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // 차트 갱신
+            renderChart(symbol, history);
+        }
+
+        function renderChart(symbol, history) {
+            const dates = history.map(h => h.date);
+            const rawAssets = history.map(h => h.total_assets);
+            const netAssets = history.map(h => h.net_assets);
+            const prices = history.map(h => h.close);
+            const rates = history.map(h => h.exchange_rate || 1380.0);
+
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            const ctx = document.getElementById('virtualChart').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '세전 가상자산 ($)',
+                            data: rawAssets,
+                            borderColor: '#60a5fa',
+                            borderWidth: 2,
+                            fill: false,
+                            yAxisID: 'y-assets',
+                            pointRadius: 3
+                        },
+                        {
+                            label: '비용 차감 후 순자산 ($)',
+                            data: netAssets,
+                            borderColor: '#34d399',
+                            borderWidth: 2.5,
+                            fill: false,
+                            yAxisID: 'y-assets',
+                            pointRadius: 3
+                        },
+                        {
+                            label: `${symbol} 주가 ($)`,
+                            data: prices,
+                            borderColor: 'rgba(139, 92, 246, 0.4)',
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                            fill: false,
+                            yAxisID: 'y-price',
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        const val = context.parsed.y;
+                                        label += '$' + val.toFixed(2);
+                                        
+                                        if (context.datasetIndex === 0 || context.datasetIndex === 1) {
+                                            const rate = rates[context.dataIndex];
+                                            const krwVal = Math.round(val * rate);
+                                            label += ' (약 ' + krwVal.toLocaleString() + '원)';
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        'y-assets': {
+                            type: 'linear',
+                            position: 'left',
+                            ticks: { color: '#9ca3af' },
+                            title: { display: true, text: '자산 가치 ($)', color: '#9ca3af' }
+                        },
+                        'y-price': {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#9ca3af' },
+                            title: { display: true, text: '주가 ($)', color: '#9ca3af' }
+                        },
+                        x: { ticks: { color: '#9ca3af' } }
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>

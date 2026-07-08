@@ -32,6 +32,8 @@ jobs:
     - name: 무한매수법 봇 가상 모드(Dry-run) 실행
       run: |
         python trading/infinite_buying_bot.py --symbol TQQQ
+        python trading/infinite_buying_bot.py --symbol SOXL
+
 
       env:
         # 가상(Dry-run) 테스트이므로 토스 API 키는 세팅하지 않아도 돌아갑니다.
@@ -46,8 +48,9 @@ jobs:
         git config --global user.name "Github Actions Bot"
         git config --global user.email "actions@github.com"
         git add -f trading/data/infinite_buying_status.json
-        git add -f trading/data/TQQQ_10_virtual_history.json
-        git add -f trading/data/TQQQ_virtual_trading_report.html
+        git add -f trading/data/*_10_virtual_history.json
+        git add -f trading/data/virtual_trading_report.html
+
 
 
         

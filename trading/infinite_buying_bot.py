@@ -17,7 +17,7 @@ STATUS_FILE_NAME = "infinite_buying_status.json"
 class TossInfiniteBuyingBot:
     """
     토스증권 OpenAPI를 연동하여 라오어의 무한매수법에 따른 자동 매매를 수행하는 봇입니다.
-    (API 재시도 로직, 텔레그램 알림 발송 및 극단적 예외 상황 방어망 구축 완료)
+    (다중 종목 통합 탭 지원 단일 대시보드 리포터 연동)
     """
     def __init__(self, symbol: str, is_dry_run: bool = True, gemini_monthly_fee: float = 20.0, transaction_fee_rate: float = 0.0007, tax_rate: float = 0.0000278):
         self.symbol = symbol.upper()
@@ -43,7 +43,7 @@ class TossInfiniteBuyingBot:
         self.status_file_path = os.path.join(self.current_dir, "data", STATUS_FILE_NAME)
         
         self.virtual_history_path = os.path.join(self.current_dir, "data", f"{self.symbol}_10_virtual_history.json")
-        self.dashboard_path = os.path.join(self.current_dir, "data", f"{self.symbol}_virtual_trading_report.html")
+        self.dashboard_path = os.path.join(self.current_dir, "data", "virtual_trading_report.html")
         
         os.makedirs(os.path.join(self.current_dir, "data"), exist_ok=True)
         self.status = self.load_status()
@@ -54,7 +54,6 @@ class TossInfiniteBuyingBot:
         """
         print(f"📢 [Telegram 알림 전송 시도] {message}")
         if not self.telegram_token or not self.telegram_chat_id:
-            print("💡 .env에 TELEGRAM_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되어 있지 않아 텔레그램 알림을 건너뜁니다.")
             return
             
         url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
@@ -64,8 +63,6 @@ class TossInfiniteBuyingBot:
         }
         try:
             response = requests.post(url, json=payload, timeout=10)
-            if response.status_code != 200:
-                print(f"❌ 텔레그램 알림 발송 실패 (상태코드 {response.status_code}): {response.text}")
         except Exception as e:
             print(f"❌ 텔레그램 알림 API 오류: {e}")
             
@@ -119,7 +116,6 @@ class TossInfiniteBuyingBot:
             return
             
         try:
-            # 3회 재시도를 적용한 계좌 조회
             holdings_info = None
             for attempt in range(1, 4):
                 try:
@@ -185,7 +181,6 @@ class TossInfiniteBuyingBot:
         self.save_status()
 
     def get_current_price(self):
-        # 현재가 조회 3회 재시도 적용
         for attempt in range(1, 4):
             try:
                 import yfinance as yf
@@ -197,7 +192,7 @@ class TossInfiniteBuyingBot:
                 print(f"⚠️ [재시도 {attempt}/3] yfinance 현재가 조회 실패: {e}")
                 if attempt < 3:
                     time.sleep(2.0)
-        return 76.76
+        return 76.76 if self.symbol == "TQQQ" else 29.47
 
     def get_exchange_rate(self):
         for attempt in range(1, 4):
@@ -213,10 +208,6 @@ class TossInfiniteBuyingBot:
         return 1380.0
 
     def place_toss_order(self, quantity: float, price: float, side: str, order_type: str = "LIMIT", time_in_force: str = "DAY"):
-        """
-        토스증권 API로 주문을 전송합니다. 
-        (네트워크 순단 장애나 일시적 지연에 대응하기 위해 3회 자동 재시도 및 백오프 적용)
-        """
         if self.is_dry_run:
             print(f"🛡️ [DRY RUN 가상 주문] {side} {self.symbol} {quantity:.2f}주 @ ${price:.2f} (TIF: {time_in_force})")
             return {"status": "success", "orderId": "mock_order_id"}
@@ -233,7 +224,6 @@ class TossInfiniteBuyingBot:
             "price": str(round(price, 2))
         }
         
-        # 3회 자동 재시도 루프
         for attempt in range(1, 4):
             try:
                 response = requests.post(url, headers=headers, json=payload, timeout=15)
@@ -248,7 +238,7 @@ class TossInfiniteBuyingBot:
                 print(f"⚠️ [주문 API 에러 시도 {attempt}/3]: {e}")
                 
             if attempt < 3:
-                time.sleep(3.0 * attempt) # 백오프 대기
+                time.sleep(3.0 * attempt)
                 
         err_msg = f"❌ [주문 최종 실패] {side} {self.symbol} {quantity:.2f}주 주문이 3회 재시도에도 불구하고 실패했습니다."
         print(err_msg)
@@ -339,52 +329,48 @@ class TossInfiniteBuyingBot:
         print(f"📊 [{self.symbol} 가상자산 현황] 세전: ${today_record['total_assets']:.2f} (약 {today_record['total_assets_krw']:,}원 | {today_record['profit_rate_pct']:+}%)\n"
               f"                     비용차감 후 순자산: ${today_record['net_assets']:.2f} (약 {today_record['net_assets_krw']:,}원 | {today_record['net_profit_rate_pct']:+}%)")
               
-        self.generate_virtual_dashboard(history_list)
+        self.generate_virtual_dashboard()
 
-    def generate_virtual_dashboard(self, history):
-        today_rec = history[-1]
-        raw_pct = today_rec["profit_rate_pct"]
-        net_pct = today_rec["net_profit_rate_pct"]
-        
-        dates_json = json.dumps([h["date"] for h in history])
-        raw_assets_json = json.dumps([h["total_assets"] for h in history])
-        net_assets_json = json.dumps([h["net_assets"] for h in history])
-        prices_json = json.dumps([h["close"] for h in history])
-        rates_json = json.dumps([h.get("exchange_rate", 1380.0) for h in history])
-        
-        sorted_history = list(reversed(history))
-        log_rows_html = ""
-        for h in sorted_history:
-            act_type = h.get("action_type", "대기")
-            badge_color = "var(--accent-blue)"
-            if "매수" in act_type:
-                badge_color = "var(--accent-green)"
-            elif "매도" in act_type or "익절" in act_type:
-                badge_color = "var(--accent-red)"
-            elif "대기" in act_type:
-                badge_color = "var(--text-secondary)"
-                
-            qty_str = f"{h.get('action_qty', 0.0):.2f}주" if h.get('action_qty', 0.0) > 0 else "-"
-            price_str = f"${h.get('action_price', 0.0):.2f}" if h.get('action_price', 0.0) > 0 else "-"
-            amt_str = f"${h.get('action_amount', 0.0):.2f}" if h.get('action_amount', 0.0) > 0 else "-"
+    def generate_virtual_dashboard(self):
+        """
+        활성화된 모든 종목(TQQQ, SOXL)의 기록을 파싱하여 단일 다중 탭 HTML 대시보드를 생성합니다.
+        """
+        all_status = {}
+        if os.path.exists(self.status_file_path):
+            with open(self.status_file_path, "r", encoding="utf-8") as f:
+                try:
+                    all_status = json.load(f)
+                except Exception:
+                    pass
+                    
+        dashboard_data = {}
+        for sym in all_status.keys():
+            history_path = os.path.join(self.current_dir, "data", f"{sym}_10_virtual_history.json")
+            if os.path.exists(history_path):
+                with open(history_path, "r", encoding="utf-8") as f:
+                    try:
+                        hist = json.load(f)
+                        dashboard_data[sym] = {
+                            "status": all_status[sym],
+                            "history": hist
+                        }
+                    except Exception:
+                        pass
+                        
+        if not dashboard_data:
+            return
             
-            log_rows_html += f"""
-            <tr>
-                <td style="font-family: 'Outfit', sans-serif;">{h['date']}</td>
-                <td><span style="background-color: {badge_color}33; color: {badge_color}; padding: 0.25rem 0.6rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 700;">{act_type}</span></td>
-                <td style="font-family: 'Outfit', sans-serif;">{qty_str}</td>
-                <td style="font-family: 'Outfit', sans-serif;">{price_str}</td>
-                <td style="font-family: 'Outfit', sans-serif;">{amt_str}</td>
-                <td style="font-family: 'Outfit', sans-serif; color: var(--text-secondary);">{h.get('exchange_rate', 1380.0):.2f} 원</td>
-            </tr>
-            """
-            
+        # 첫 번째 로드할 디폴트 탭 지정 (실행된 symbol 우선)
+        default_symbol = self.symbol if self.symbol in dashboard_data else list(dashboard_data.keys())[0]
+        
+        dashboard_data_json = json.dumps(dashboard_data, ensure_ascii=False)
+        
         html_template = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{self.symbol} 10분할 실시간 모의투자 대시보드</title>
+    <title>무한매수법 실시간 모의투자 대시보드</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -410,20 +396,57 @@ class TossInfiniteBuyingBot:
         }}
 
         .container {{ max-width: 1200px; margin: 0 auto; }}
+        
         header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 1.5rem;
             margin-bottom: 2rem;
         }}
+        @media (max-width: 768px) {{
+            header {{ flex-direction: column; align-items: flex-start; gap: 1rem; }}
+        }}
 
         header h1 {{
-            font-size: 2.2rem;
+            font-size: 2rem;
             background: linear-gradient(to right, #60a5fa, #34d399);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }}
 
-        header p {{ color: var(--text-secondary); font-size: 1.05rem; margin-top: 0.25rem; }}
+        header p {{ color: var(--text-secondary); font-size: 1rem; margin-top: 0.25rem; }}
+
+        /* 탭 스타일 */
+        .tabs {{
+            display: flex;
+            gap: 0.75rem;
+        }}
+
+        .tab-btn {{
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.6rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }}
+
+        .tab-btn:hover {{
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }}
+
+        .tab-btn.active {{
+            background-color: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }}
         
         .kpi-grid {{
             display: grid;
@@ -517,33 +540,36 @@ class TossInfiniteBuyingBot:
 <body>
     <div class="container">
         <header>
-            <h1>{self.symbol} 10분할 실시간 모의투자 대시보드</h1>
-            <p>오늘부터 시작하는 {self.symbol} 10분할 (하루 최대 1주) 무한매수 모의투자 가짜 계좌 (소수점 둘째 자리 통일)</p>
+            <div>
+                <h1>무한매수법 실시간 모의투자 대시보드</h1>
+                <p>하루 최대 1주 매수 룰 적용 (달러/원화 실시간 병기 및 거래 일지 제공)</p>
+            </div>
+            
+            <!-- 탭 영역 -->
+            <div class="tabs" id="tabContainer"></div>
         </header>
 
         <!-- KPI Grid -->
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-title">총 설정 원금</div>
-                <div class="kpi-value">${self.status['capital']:.2f}</div>
-                <div class="kpi-sub">≈ {int(self.status['capital'] * today_rec['exchange_rate']):,} 원</div>
+                <div class="kpi-value" id="kpiCapital">$0.00</div>
+                <div class="kpi-sub" id="kpiCapitalKrw">≈ 0 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">세전 가상자산</div>
-                <div class="kpi-value" style="color: #60a5fa">${today_rec['total_assets']:.2f} ({raw_pct:+,}%)</div>
-                <div class="kpi-sub">≈ {today_rec.get('total_assets_krw', 0):,} 원</div>
+                <div class="kpi-value" id="kpiRawAssets" style="color: #60a5fa">$0.00 (+0%)</div>
+                <div class="kpi-sub" id="kpiRawAssetsKrw">≈ 0 원</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">순자산 (비용 차감 후)</div>
-                <div class="kpi-value {'positive' if net_pct >= 0 else 'negative'}">
-                    ${today_rec['net_assets']:.2f} ({net_pct:+,}%)
-                </div>
-                <div class="kpi-sub" style="color: var(--accent-green);">≈ {today_rec.get('net_assets_krw', 0):,} 원</div>
+                <div class="kpi-value" id="kpiNetAssets">$0.00 (+0%)</div>
+                <div class="kpi-sub" id="kpiNetAssetsKrw" style="color: var(--accent-green)">≈ 0 원</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">{self.symbol} 현재가</div>
-                <div class="kpi-value" style="color: var(--accent-purple)">${today_rec['close']:.2f}</div>
-                <div class="kpi-sub">{today_rec['exchange_rate']:.2f} 원/$</div>
+                <div class="kpi-title">현재가 / 환율</div>
+                <div class="kpi-value" id="kpiClose" style="color: var(--accent-purple)">$0.00</div>
+                <div class="kpi-sub" id="kpiRate">0.00 원/$</div>
             </div>
         </div>
 
@@ -560,19 +586,19 @@ class TossInfiniteBuyingBot:
                 <ul class="stat-list">
                     <li class="stat-item">
                         <span class="stat-label">현재 가상 진행 회차</span>
-                        <span class="stat-val">{self.status['step']} / 10회차</span>
+                        <span class="stat-val" id="statStep">0 / 10회차</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">가상 보유량</span>
-                        <span class="stat-val">{self.status['holdings']:.2f}주</span>
+                        <span class="stat-val" id="statHoldings">0.00주</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">가상 보유 평단가</span>
-                        <span class="stat-val">${self.status['average_price']:.2f} (약 {int(self.status['average_price']*today_rec['exchange_rate']):,}원)</span>
+                        <span class="stat-val" id="statAveragePrice">$0.00 (약 0원)</span>
                     </li>
                     <li class="stat-item">
                         <span class="stat-label">순현금 보유액</span>
-                        <span class="stat-val">${self.status['net_cash']:.2f} (약 {int(self.status['net_cash']*today_rec['exchange_rate']):,}원)</span>
+                        <span class="stat-val" id="statNetCash">$0.00 (약 0원)</span>
                     </li>
                 </ul>
                 <div class="notice-card">
@@ -597,101 +623,193 @@ class TossInfiniteBuyingBot:
                         <th>적용 환율</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {log_rows_html}
-                </tbody>
+                <tbody id="logTableBody"></tbody>
             </table>
         </div>
     </div>
 
     <script>
-        const dates = {dates_json};
-        const rawAssets = {raw_assets_json};
-        const netAssets = {net_assets_json};
-        const prices = {prices_json};
-        const rates = {rates_json};
+        const dashboardData = {dashboard_data_json};
+        let currentChart = null;
 
-        const ctx = document.getElementById('virtualChart').getContext('2d');
-        new Chart(ctx, {{
-            type: 'line',
-            data: {{
-                labels: dates,
-                datasets: [
-                    {{
-                        label: '세전 가상자산 ($)',
-                        data: rawAssets,
-                        borderColor: '#60a5fa',
-                        borderWidth: 2,
-                        fill: false,
-                        yAxisID: 'y-assets',
-                        pointRadius: 3
-                    }},
-                    {{
-                        label: '비용 차감 후 순자산 ($)',
-                        data: netAssets,
-                        borderColor: '#34d399',
-                        borderWidth: 2.5,
-                        fill: false,
-                        yAxisID: 'y-assets',
-                        pointRadius: 3
-                    }},
-                    {{
-                        label: '{self.symbol} 주가 ($)',
-                        data: prices,
-                        borderColor: 'rgba(139, 92, 246, 0.4)',
-                        borderWidth: 1.5,
-                        borderDash: [4, 4],
-                        fill: false,
-                        yAxisID: 'y-price',
-                        pointRadius: 0
-                    }}
-                ]
-            }},
-            options: {{
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {{ mode: 'index', intersect: false }},
-                plugins: {{
-                    tooltip: {{
-                        callbacks: {{
-                            label: function(context) {{
-                                let label = context.dataset.label || '';
-                                if (label) {{
-                                    label += ': ';
-                                }}
-                                if (context.parsed.y !== null) {{
-                                    const val = context.parsed.y;
-                                    label += '$' + val.toFixed(2);
-                                    
-                                    if (context.datasetIndex === 0 || context.datasetIndex === 1) {{
-                                        const rate = rates[context.dataIndex];
-                                        const krwVal = Math.round(val * rate);
-                                        label += ' (약 ' + krwVal.toLocaleString() + '원)';
+        // 동적으로 탭 생성
+        const tabContainer = document.getElementById('tabContainer');
+        Object.keys(dashboardData).forEach((symbol, index) => {{
+            const btn = document.createElement('button');
+            btn.className = `tab-btn ${{symbol === '{default_symbol}' ? 'active' : ''}}`;
+            btn.innerText = symbol;
+            btn.onclick = () => switchTab(symbol, btn);
+            tabContainer.appendChild(btn);
+        }});
+
+        // 초기 화면 렌더링
+        switchTab('{default_symbol}');
+
+        function switchTab(symbol, targetBtn = null) {{
+            // 탭 버튼 active 클래스 제어
+            if (targetBtn) {{
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                targetBtn.classList.add('active');
+            }}
+
+            const data = dashboardData[symbol];
+            const status = data.status;
+            const history = data.history;
+            const latest = history[history.length - 1];
+
+            const exRate = latest.exchange_rate;
+
+            // KPI 값 갱신
+            document.getElementById('kpiCapital').innerText = `$${{status.capital.toFixed(2)}}`;
+            document.getElementById('kpiCapitalKrw').innerText = `≈ ${{Math.round(status.capital * exRate).toLocaleString()}} 원`;
+
+            const rawPct = latest.profit_rate_pct;
+            document.getElementById('kpiRawAssets').innerText = `$${{latest.total_assets.toFixed(2)}} (${{rawPct >= 0 ? '+' : ''}}${{rawPct}}%)`;
+            document.getElementById('kpiRawAssetsKrw').innerText = `≈ ${{latest.total_assets_krw.toLocaleString()}} 원`;
+
+            const netPct = latest.net_profit_rate_pct;
+            const netKpi = document.getElementById('kpiNetAssets');
+            netKpi.innerText = `$${{latest.net_assets.toFixed(2)}} (${{netPct >= 0 ? '+' : ''}}${{netPct}}%)`;
+            if (netPct >= 0) {{
+                netKpi.className = 'kpi-value positive';
+            }} else {{
+                netKpi.className = 'kpi-value negative';
+            }}
+            document.getElementById('kpiNetAssetsKrw').innerText = `≈ ${{latest.net_assets_krw.toLocaleString()}} 원`;
+
+            document.getElementById('kpiClose').innerText = `$${{latest.close.toFixed(2)}}`;
+            document.getElementById('kpiRate').innerText = `${{exRate.toFixed(2)}} 원/$`;
+
+            // 통계 표 갱신
+            document.getElementById('statStep').innerText = `${{status.step}} / 10회차`;
+            document.getElementById('statHoldings').innerText = `${{status.holdings.toFixed(2)}}주`;
+            document.getElementById('statAveragePrice').innerText = `$${{status.average_price.toFixed(2)}} (약 ${{Math.round(status.average_price * exRate).toLocaleString()}}원)`;
+            document.getElementById('statNetCash').innerText = `$${{status.net_cash.toFixed(2)}} (약 ${{Math.round(status.net_cash * exRate).toLocaleString()}}원)`;
+
+            // 거래 일지 갱신
+            const tbody = document.getElementById('logTableBody');
+            tbody.innerHTML = '';
+            
+            // 최신순 정렬
+            const reversedHist = [...history].reverse();
+            reversedHist.forEach(h => {{
+                const actType = h.action_type || '대기';
+                let badgeColor = 'var(--accent-blue)';
+                if (actType.includes('매수')) badgeColor = 'var(--accent-green)';
+                else if (actType.includes('매도') || actType.includes('익절')) badgeColor = 'var(--accent-red)';
+                else if (actType.includes('대기')) badgeColor = 'var(--text-secondary)';
+
+                const qtyStr = h.action_qty > 0 ? `${{h.action_qty.toFixed(2)}}주` : '-';
+                const priceStr = h.action_price > 0 ? `$${{h.action_price.toFixed(2)}}` : '-';
+                const amtStr = h.action_amount > 0 ? `$${{h.action_amount.toFixed(2)}}` : '-';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-family: 'Outfit', sans-serif;">${{h.date}}</td>
+                    <td><span style="background-color: ${{badgeColor}}33; color: ${{badgeColor}}; padding: 0.25rem 0.6rem; border-radius: 0.5rem; font-size: 0.85rem; font-weight: 700;">${{actType}}</span></td>
+                    <td style="font-family: 'Outfit', sans-serif;">${{qtyStr}}</td>
+                    <td style="font-family: 'Outfit', sans-serif;">${{priceStr}}</td>
+                    <td style="font-family: 'Outfit', sans-serif;">${{amtStr}}</td>
+                    <td style="font-family: 'Outfit', sans-serif; color: var(--text-secondary);">${{h.exchange_rate.toFixed(2)}} 원</td>
+                `;
+                tbody.appendChild(tr);
+            }});
+
+            // 차트 갱신
+            renderChart(symbol, history);
+        }}
+
+        function renderChart(symbol, history) {{
+            const dates = history.map(h => h.date);
+            const rawAssets = history.map(h => h.total_assets);
+            const netAssets = history.map(h => h.net_assets);
+            const prices = history.map(h => h.close);
+            const rates = history.map(h => h.exchange_rate || 1380.0);
+
+            if (currentChart) {{
+                currentChart.destroy();
+            }}
+
+            const ctx = document.getElementById('virtualChart').getContext('2d');
+            currentChart = new Chart(ctx, {{
+                type: 'line',
+                data: {{
+                    labels: dates,
+                    datasets: [
+                        {{
+                            label: '세전 가상자산 ($)',
+                            data: rawAssets,
+                            borderColor: '#60a5fa',
+                            borderWidth: 2,
+                            fill: false,
+                            yAxisID: 'y-assets',
+                            pointRadius: 3
+                        }},
+                        {{
+                            label: '비용 차감 후 순자산 ($)',
+                            data: netAssets,
+                            borderColor: '#34d399',
+                            borderWidth: 2.5,
+                            fill: false,
+                            yAxisID: 'y-assets',
+                            pointRadius: 3
+                        }},
+                        {{
+                            label: `${{symbol}} 주가 ($)`,
+                            data: prices,
+                            borderColor: 'rgba(139, 92, 246, 0.4)',
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                            fill: false,
+                            yAxisID: 'y-price',
+                            pointRadius: 0
+                        }}
+                    ]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {{ mode: 'index', intersect: false }},
+                    plugins: {{
+                        tooltip: {{
+                            callbacks: {{
+                                label: function(context) {{
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {{
+                                        const val = context.parsed.y;
+                                        label += '$' + val.toFixed(2);
+                                        
+                                        if (context.datasetIndex === 0 || context.datasetIndex === 1) {{
+                                            const rate = rates[context.dataIndex];
+                                            const krwVal = Math.round(val * rate);
+                                            label += ' (약 ' + krwVal.toLocaleString() + '원)';
+                                        }}
                                     }}
+                                    return label;
                                 }}
-                                return label;
                             }}
                         }}
+                    }},
+                    scales: {{
+                        'y-assets': {{
+                            type: 'linear',
+                            position: 'left',
+                            ticks: {{ color: '#9ca3af' }},
+                            title: {{ display: true, text: '자산 가치 ($)', color: '#9ca3af' }}
+                        }},
+                        'y-price': {{
+                            type: 'linear',
+                            position: 'right',
+                            grid: {{ drawOnChartArea: false }},
+                            ticks: {{ color: '#9ca3af' }},
+                            title: {{ display: true, text: '주가 ($)', color: '#9ca3af' }}
+                        }},
+                        x: {{ ticks: {{ color: '#9ca3af' }} }}
                     }}
-                }},
-                scales: {{
-                    'y-assets': {{
-                        type: 'linear',
-                        position: 'left',
-                        ticks: {{ color: '#9ca3af' }},
-                        title: {{ display: true, text: '자산 가치 ($)', color: '#9ca3af' }}
-                    }},
-                    'y-price': {{
-                        type: 'linear',
-                        position: 'right',
-                        grid: {{ drawOnChartArea: false }},
-                        ticks: {{ color: '#9ca3af' }},
-                        title: {{ display: true, text: '주가 ($)', color: '#9ca3af' }}
-                    }},
-                    x: {{ ticks: {{ color: '#9ca3af' }} }}
                 }}
-            }}
-        }});
+            }});
+        }}
     </script>
 </body>
 </html>
@@ -699,7 +817,7 @@ class TossInfiniteBuyingBot:
         
         with open(self.dashboard_path, "w", encoding="utf-8") as f:
             f.write(html_template)
-        print(f"✨ 실시간 가상 대시보드 업데이트 완료! 파일 경로:\n   {self.dashboard_path}")
+        print(f"✨ 통합 다중 탭 실시간 가상 대시보드 업데이트 완료! 파일 경로:\n   {self.dashboard_path}")
 
     def execute_daily_trade(self):
         """

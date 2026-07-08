@@ -1,13 +1,20 @@
 [
     {
-        "date": "2026-07-06",
-        "close": 207.3000030517578,
+        "date": "2026-07-07",
+        "close": 29.47,
+        "exchange_rate": 1529.82,
         "step": 1,
         "holdings": 1.0,
-        "average_price": 207.3,
-        "total_assets": 4200.0,
-        "net_assets": 4199.85,
+        "average_price": 29.47,
+        "total_assets": 600.0,
+        "net_assets": 599.98,
+        "total_assets_krw": 917892,
+        "net_assets_krw": 917861,
         "profit_rate_pct": 0.0,
-        "net_profit_rate_pct": -0.0
+        "net_profit_rate_pct": -0.0,
+        "action_type": "최초 진입 매수",
+        "action_qty": 1.0,
+        "action_price": 29.47,
+        "action_amount": 29.47
     }
 ]
