@@ -46,3 +46,7 @@ Thumbs.db
 !.env.example
 secrets.json
 config/keys.json
+
+# Local link for personal portal editing
+joy-seonjeong.github.io
+
