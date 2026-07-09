@@ -34,5 +34,23 @@
         "action_qty": 1.0,
         "action_price": 174.82,
         "action_amount": 174.82
+    },
+    {
+        "date": "2026-07-09",
+        "close": 192.45,
+        "exchange_rate": 1506.19,
+        "step": 0,
+        "holdings": 0.0,
+        "average_price": 0.0,
+        "total_assets": 3608.71,
+        "net_assets": 3608.33,
+        "total_assets_krw": 5435403,
+        "net_assets_krw": 5434828,
+        "profit_rate_pct": 6.14,
+        "net_profit_rate_pct": 6.13,
+        "action_type": "익절 전량 매도",
+        "action_qty": 2.0,
+        "action_price": 187.06,
+        "action_amount": 374.11
     }
 ]
