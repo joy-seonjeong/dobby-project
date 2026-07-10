@@ -52,5 +52,23 @@
         "action_qty": 2.0,
         "action_price": 187.06,
         "action_amount": 374.11
+    },
+    {
+        "date": "2026-07-10",
+        "close": 192.26,
+        "exchange_rate": 1498.87,
+        "step": 1,
+        "holdings": 1.0,
+        "average_price": 192.26,
+        "total_assets": 3234.6,
+        "net_assets": 3234.41,
+        "total_assets_krw": 4848245,
+        "net_assets_krw": 4847957,
+        "profit_rate_pct": -4.86,
+        "net_profit_rate_pct": -4.87,
+        "action_type": "최초 진입 매수",
+        "action_qty": 1.0,
+        "action_price": 192.26,
+        "action_amount": 192.26
     }
 ]
