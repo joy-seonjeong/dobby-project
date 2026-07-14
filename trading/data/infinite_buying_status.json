@@ -7,11 +7,11 @@
         "holdings": 7.0,
         "average_price": 74.28714224679129,
         "total_purchase_amount": 520.009995727539,
-        "cash": 1378.72,
-        "net_cash": 1378.49,
-        "net_holdings": 3.0,
-        "net_average_price": 73.84,
-        "net_total_purchase": 221.51,
+        "cash": 1079.98,
+        "net_cash": 1079.46,
+        "net_holdings": 7.0,
+        "net_average_price": 74.36285714285714,
+        "net_total_purchase": 520.54,
         "last_trade_date": "2026-07-13"
     },
     "SOXL": {
@@ -22,11 +22,11 @@
         "holdings": 2.0,
         "average_price": 178.81499481201172,
         "total_purchase_amount": 357.62998962402344,
-        "net_cash": 3234.6,
-        "net_holdings": 0.0,
-        "net_average_price": 0.0,
-        "net_total_purchase": 0.0,
-        "last_trade_date": "2026-07-13",
-        "cash": 3234.6
+        "cash": 3076.39,
+        "net_cash": 3075.31,
+        "net_holdings": 2.0,
+        "net_average_price": 179.0,
+        "net_total_purchase": 357.99,
+        "last_trade_date": "2026-07-13"
     }
 }

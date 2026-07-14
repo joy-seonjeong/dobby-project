@@ -336,6 +336,7 @@ class TossInfiniteBuyingBot:
               f"                     비용차감 후 순자산: ${today_record['net_assets']:.2f} (약 {today_record['net_assets_krw']:,}원 | {today_record['net_profit_rate_pct']:+}%)")
               
         self.generate_virtual_dashboard()
+        self.save_status()
 
     def generate_virtual_dashboard(self):
         """
