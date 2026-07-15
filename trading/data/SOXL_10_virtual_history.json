@@ -106,5 +106,23 @@
         "action_qty": 1.0,
         "action_price": 176.66,
         "action_amount": 176.66
+    },
+    {
+        "date": "2026-07-15",
+        "close": 165.55,
+        "exchange_rate": 1486.48,
+        "step": 4,
+        "holdings": 4.0,
+        "average_price": 174.96,
+        "total_assets": 3396.38,
+        "net_assets": 3394.96,
+        "total_assets_krw": 5048651,
+        "net_assets_krw": 5046537,
+        "profit_rate_pct": -0.11,
+        "net_profit_rate_pct": -0.15,
+        "action_type": "지정가 LOC 매수",
+        "action_qty": 1.0,
+        "action_price": 165.55,
+        "action_amount": 165.55
     }
 ]
