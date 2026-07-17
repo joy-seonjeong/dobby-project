@@ -18,15 +18,15 @@
         "capital": 3400.0,
         "divisions": 10,
         "one_time_limit": 340.0,
-        "step": 5,
-        "holdings": 5.0,
-        "average_price": 168.46399841308593,
-        "total_purchase_amount": 842.3199920654297,
-        "cash": 2591.6999975585936,
-        "net_cash": 2590.135307556152,
-        "net_holdings": 5.0,
-        "net_average_price": 168.63293848876953,
-        "net_total_purchase": 843.1646924438477,
-        "last_trade_date": "2026-07-16"
+        "step": 6,
+        "holdings": 6.0,
+        "average_price": 162.96499888102213,
+        "total_purchase_amount": 977.7899932861328,
+        "cash": 2456.2299963378905,
+        "net_cash": 2454.529836334228,
+        "net_holdings": 6.0,
+        "net_average_price": 163.12836061096192,
+        "net_total_purchase": 978.7701636657715,
+        "last_trade_date": "2026-07-17"
     }
 }
