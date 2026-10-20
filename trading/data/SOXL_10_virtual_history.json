@@ -1312,5 +1312,23 @@
         "action_qty": 0.0,
         "action_price": 0.0,
         "action_amount": 0.0
+    },
+    {
+        "date": "2026-10-19",
+        "close": 98.65,
+        "exchange_rate": 1325.88,
+        "step": 10,
+        "holdings": 10.0,
+        "average_price": 159.16,
+        "total_assets": 2828.89,
+        "net_assets": 2766.58,
+        "total_assets_krw": 3750769,
+        "net_assets_krw": 3668148,
+        "profit_rate_pct": -16.8,
+        "net_profit_rate_pct": -18.63,
+        "action_type": "원금 소진 대기",
+        "action_qty": 0.0,
+        "action_price": 0.0,
+        "action_amount": 0.0
     }
 ]
